@@ -87,8 +87,8 @@ Aplicación web full-stack para la transmisión de eventos y marcadores de parti
 
 ### Paso 1: Clonar el repositorio y configurar variables de entorno
 ```bash
-git clone <URL_DE_TU_REPOSITORIO>
-cd "d:\Desarrollo Web"
+git clone https://github.com/MayroGamerosXZ/-S15-Marcador-en-vivo-con-SSE-y-migraciones.git
+cd "-S15-Marcador-en-vivo-con-SSE-y-migraciones"
 cp .env.example .env
 ```
 
