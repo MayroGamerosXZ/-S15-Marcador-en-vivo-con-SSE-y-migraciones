@@ -4,13 +4,43 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Marcador en Vivo SSE | Live Football Scoreboard</title>
-    <!-- Google Fonts Inter -->
+    <title>⚡ LiveScore PRO | Marcador en Vivo SSE & Drizzle</title>
+    <!-- Google Fonts: Inter, Teko, Orbitron para display digital de estadio -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Teko:wght@500;600;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS Engine oficial CDN para asegurar carga instantánea de todas las clases y gradientes -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              pitch: {
+                950: '#050811',
+                900: '#0a0f1d',
+                800: '#111827',
+                700: '#1e293b',
+              },
+              turf: {
+                500: '#10b981',
+                400: '#34d399',
+                600: '#059669',
+              }
+            },
+            fontFamily: {
+              scoreboard: ['Teko', 'sans-serif'],
+              digital: ['Orbitron', 'monospace'],
+              sans: ['Inter', 'system-ui', 'sans-serif']
+            }
+          }
+        }
+      }
+    </script>
   </head>
-  <body class="bg-pitch-900 text-slate-100 min-h-screen antialiased selection:bg-turf-500 selection:text-white">
+  <body class="bg-[#060913] text-slate-100 min-h-screen antialiased selection:bg-emerald-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
