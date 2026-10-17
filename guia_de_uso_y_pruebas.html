@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guía de Uso y Suite de Pruebas | Marcador en Vivo SSE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #0f172a;
+      --card-border: #1e293b;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.25);
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --blue: #0ea5e9;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-blue { background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3); }
+    h1 {
+      font-family: 'Teko', sans-serif;
+      font-size: 3rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #fff;
+      margin-top: 0.5rem;
+    }
+    h1 span { color: var(--accent); }
+    p.lead {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 700px;
+      margin: 0.5rem auto 0;
+    }
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 1rem;
+      padding: 1.75rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    .card-highlight {
+      border-color: rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+    .code-block {
+      background: #020617;
+      border: 1px solid #1e293b;
+      padding: 0.85rem 1rem;
+      border-radius: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      overflow-x: auto;
+      margin: 0.5rem 0 1rem;
+    }
+    .steps-list {
+      list-style: none;
+      counter-reset: step-counter;
+      margin: 1rem 0;
+    }
+    .steps-list li {
+      counter-increment: step-counter;
+      position: relative;
+      padding-left: 2.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .steps-list li::before {
+      content: counter(step-counter);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 2rem;
+      height: 2rem;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.85rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .test-matrix {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+    .test-matrix th, .test-matrix td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 0.9rem;
+    }
+    .test-matrix th {
+      background: #0b1120;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    .test-matrix tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .checkbox-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      transition: background 0.2s;
+    }
+    .checkbox-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .checkbox-item input {
+      margin-top: 0.25rem;
+      accent-color: var(--accent);
+      width: 1.15rem;
+      height: 1.15rem;
+    }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: rgba(16, 185, 129, 0.08);
+      padding: 1rem 1.25rem;
+      border-radius: 0 0.5rem 0.5rem 0;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+    .callout-amber {
+      border-left-color: var(--amber);
+      background: rgba(245, 158, 11, 0.08);
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.25rem;
+    }
+    .status-green { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .status-amber { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .status-red { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="badge badge-green">Sistema en Tiempo Real • SSE & Drizzle ORM</span>
+      <h1>Manual de Operación & <span>Suite de Pruebas</span></h1>
+      <p class="lead">Guía interactiva para desplegar, operar y validar el cumplimiento del 100% de los requerimientos técnicos del Marcador en Vivo.</p>
+    </header>
+
+    <!-- Sección 1: Puesta en Marcha Rápida -->
+    <div class="card card-highlight">
+      <h2>🚀 1. Secuencia de Despliegue en Local</h2>
+      <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem;">
+        Sigue estos 4 pasos en tu terminal (PowerShell o CMD) dentro del directorio del proyecto:
+      </p>
+
+      <ol class="steps-list">
+        <li>
+          <strong>Levantar el contenedor PostgreSQL (Docker)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Inicia el contenedor en segundo plano en el puerto dedicado 5433:</p>
+          <div class="code-block">docker compose up -d</div>
+        </li>
+        <li>
+          <strong>Aplicar las Migraciones Versionadas de Drizzle</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Ejecuta las dos migraciones de la carpeta <code>drizzle/</code> en la base de datos:</p>
+          <div class="code-block">npm run db:migrate</div>
+        </li>
+        <li>
+          <strong>Sembrar Partidos y Eventos Iniciales (Seed)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Puebla la BD con Real Madrid vs Barcelona, Man City vs Liverpool y Bayern vs Dortmund:</p>
+          <div class="code-block">npm run db:seed</div>
+        </li>
+        <li>
+          <strong>Iniciar la Aplicación Completa (Frontend + Backend)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Inicia el servidor Express (puerto 3001) y la interfaz Vite (puerto 5173) en paralelo:</p>
+          <div class="code-block">npm run dev</div>
+        </li>
+      </ol>
+
+      <div class="callout">
+        <strong>🌐 Accesos rápidos en tu navegador:</strong><br>
+        • Interfaz Web de Usuario: <a href="http://localhost:5173" target="_blank" style="color: #34d399; font-weight: bold;">http://localhost:5173</a><br>
+        • API REST Backend: <a href="http://localhost:3001/api/matches" target="_blank" style="color: #34d399;">http://localhost:3001/api/matches</a>
+      </div>
+    </div>
+
+    <!-- Sección 2: Manual de Uso -->
+    <div class="card">
+      <h2>🎮 2. Manual de Operación de la Interfaz</h2>
+
+      <h3>A. Vista Pública (Modo Espectador)</h3>
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Diseñada para que los aficionados sigan los partidos en tiempo real sin recargar la página.
+      </p>
+      <ul style="margin-left: 1.5rem; font-size: 0.9rem; color: #cbd5e1; space-y: 0.5rem;">
+        <li><strong>Selector de Partidos:</strong> En la parte superior se muestran los partidos de la jornada. Al hacer clic en cualquiera de ellos, se sintoniza el stream SSE de ese partido.</li>
+        <li><strong>Marcador En Vivo:</strong> Muestra los escudos, nombres de equipos, período (1T, 2T, etc.) y los goles en números de gran formato.</li>
+        <li><strong>Badge de Estado SSE:</strong> En la esquina superior derecha del marcador se refleja el estado de la conexión en vivo:
+          <span class="status-pill status-green">🟢 Conectado</span>
+          <span class="status-pill status-amber">🟡 Reconectando...</span>
+          <span class="status-pill status-red">🔴 Desconectado</span>
+        </li>
+        <li><strong>Línea de Tiempo (Timeline):</strong> Muestra los sucesos ordenados por minuto. Cada evento tiene su propio diseño visual:
+          <br>• ⚽ <strong>Gol:</strong> Fondo verde brillante con animación de celebración y autor.
+          <br>• 🟨 <strong>Tarjeta Amarilla:</strong> Icono y badge dorado.
+          <br>• 🟥 <strong>Tarjeta Roja:</strong> Aviso de expulsión en rojo vivo.
+          <br>• ⚠️ <strong>Falta:</strong> Alerta ámbar con descripción táctica.
+          <br>• 🔄 <strong>Sustitución:</strong> Badge azul celeste con jugador saliente y entrante.
+        </li>
+      </ul>
+
+      <h3>B. Panel de Administración (Modo Árbitro / Operador)</h3>
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+        Permite registrar incidencias en tiempo real y publicarlas inmediatamente a los espectadores.
+      </p>
+      <ul style="margin-left: 1.5rem; font-size: 0.9rem; color: #cbd5e1;">
+        <li><strong>Navegación:</strong> Haz clic en el botón <strong>"Panel Admin"</strong> en el encabezado.</li>
+        <li><strong>Plantillas Rápidas:</strong> Para agilizar pruebas, usa los botones directos como <em>"⚽ Gol Real Madrid"</em> o <em>"🔄 Sustitución"</em> que rellenan automáticamente los campos.</li>
+        <li><strong>Formulario Validado:</strong> Valida minuto (1-130), equipo, tipo de evento y descripción obligatoria.</li>
+        <li><strong>Flujo de Datos Garantizado:</strong> Al hacer clic en <em>"Registrar y Transmitir Evento"</em>, el servidor realiza un <code>POST</code>, guarda el evento en PostgreSQL y solo entonces lo transmite vía SSE a los clientes sintonizados a ese partido.</li>
+      </ul>
+    </div>
+
+    <!-- Sección 3: Protocolo y Matriz de Pruebas -->
+    <div class="card">
+      <h2>🧪 3. Protocolo de Pruebas Interactivas (Checklist)</h2>
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+        Puedes marcar cada casilla conforme verifiques el funcionamiento en tu navegador:
+      </p>
+
+      <label class="checkbox-item">
+        <input type="checkbox">
+        <div>
+          <strong>Prueba 1: Múltiples Partidos y Carga Inicial (Requisito 1 y 5)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Al abrir la app, se cargan al menos 2 partidos. Al hacer clic en uno, se cargan sus goles y faltas iniciales desde la base de datos vía HTTP.</p>
+        </div>
+      </label>
+
+      <label class="checkbox-item">
+        <input type="checkbox">
+        <div>
+          <strong>Prueba 2: Conexión SSE Activa (Requisito 3)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">El badge muestra <em>"Conectado (SSE Activo)"</em> en verde con pulso. En DevTools (F12) se observa la petición a <code>/api/matches/:id/events/stream</code> abierta con cabecera <code>text/event-stream</code>.</p>
+        </div>
+      </label>
+
+      <label class="checkbox-item">
+        <input type="checkbox">
+        <div>
+          <strong>Prueba 3: Registro en Admin y Emisión en Tiempo Real (Requisito 2 y 3)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">En el Panel Admin, registra un nuevo gol para el equipo local. Comprueba que el marcador aumenta en 1 punto y el gol aparece en la línea de tiempo instantáneamente sin recargar la página.</p>
+        </div>
+      </label>
+
+      <label class="checkbox-item">
+        <input type="checkbox">
+        <div>
+          <strong>Prueba 4: Persistencia tras Recarga F5 (Requisito 5)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Presiona la tecla F5 para recargar el navegador. Comprueba que el marcador con el nuevo gol y el evento en la línea de tiempo continúan presentes gracias a PostgreSQL.</p>
+        </div>
+      </label>
+
+      <label class="checkbox-item">
+        <input type="checkbox">
+        <div>
+          <strong>Prueba 5: Aislamiento Estricto entre Partidos (Requisito 3 y 5)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Abre dos ventanas del navegador. Sintoniza el Partido 1 en una y el Partido 2 en la otra. Registra un evento en el Partido 1. Comprueba que dicho evento solo aparece en el Partido 1 y jamás contamina el Partido 2.</p>
+        </div>
+      </label>
+
+      <label class="checkbox-item">
+        <input type="checkbox">
+        <div>
+          <strong>Prueba 6: Limpieza de Conexión al Cambiar de Partido (Requisito 3)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Al seleccionar un partido diferente, la conexión SSE del partido anterior se cierra mediante <code>eventSource.close()</code> y se abre una nueva para el partido seleccionado.</p>
+        </div>
+      </label>
+
+      <label class="checkbox-item">
+        <input type="checkbox">
+        <div>
+          <strong>Prueba 7: Sin Duplicados tras Reconexión (Requisito 5)</strong>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">El frontend utiliza deduplicación por ID único (<code>Set&lt;number&gt;</code>), impidiendo que un evento se muestre dos veces si la conexión de red parpadea.</p>
+        </div>
+      </label>
+    </div>
+
+    <!-- Sección 4: Solución de Problemas Frecuentes -->
+    <div class="card">
+      <h2>🛠️ 4. Solución de Problemas (Troubleshooting)</h2>
+      <div class="callout callout-amber">
+        <strong>¿El comando <code>npm run db:migrate</code> da error de conexión?</strong><br>
+        Asegúrate de que Docker Desktop esté abierto y que el contenedor esté corriendo con <code>docker ps</code>. Recuerda que el puerto configurado en el archivo <code>.env</code> es el <strong>5433</strong> para no interferir con otros servicios locales.
+      </div>
+      <div class="callout">
+        <strong>¿Cómo reiniciar la base de datos a un estado limpio?</strong><br>
+        Simplemente vuelve a ejecutar en tu terminal:
+        <div class="code-block">npm run db:seed</div>
+        Esto limpiará las tablas e insertará nuevamente los partidos y eventos de prueba.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

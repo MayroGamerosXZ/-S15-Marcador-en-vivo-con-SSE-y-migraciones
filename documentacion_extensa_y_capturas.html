@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentación Técnica y Guía de Capturas para Canvas | Marcador en Vivo SSE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;700&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --card-inner: #0f172a;
+      --border: #1f2937;
+      --border-accent: #374151;
+      --emerald: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.2);
+      --amber: #f59e0b;
+      --rose: #ef4444;
+      --blue: #0ea5e9;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --code-bg: #030712;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding: 2.5rem 1.25rem;
+    }
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    /* Header & Branding */
+    header {
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(17, 24, 39, 0) 100%);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 2.5rem 2rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .tag-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .tag {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+    }
+    .tag-emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .tag-blue { background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.3); }
+    .tag-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+    h1 {
+      font-family: 'Teko', sans-serif;
+      font-size: 3.25rem;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-bottom: 0.75rem;
+    }
+    h1 span { color: var(--emerald); }
+    .lead {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 800px;
+    }
+    .print-btn {
+      position: absolute;
+      top: 2rem;
+      right: 2rem;
+      background: #1f2937;
+      color: #fff;
+      border: 1px solid #374151;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s;
+    }
+    .print-btn:hover { background: #374151; }
+
+    /* Sections */
+    section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 2rem;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+    }
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #e5e7eb;
+      margin: 1.25rem 0 0.5rem;
+    }
+    p { margin-bottom: 0.85rem; color: #d1d5db; font-size: 0.95rem; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+    }
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    th {
+      background: #0d1321;
+      color: #9ca3af;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    tr:hover { background: rgba(255, 255, 255, 0.02); }
+
+    /* Wireframe / Mockup representation */
+    .mockup-frame {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      margin: 1rem 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+    }
+    .mockup-header {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #1e293b;
+      margin-bottom: 1rem;
+    }
+    .mockup-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #eab308; }
+    .dot-green { background: #10b981; }
+    .mockup-title { color: #64748b; font-size: 0.75rem; margin-left: 0.5rem; }
+
+    /* Evidence Box */
+    .evidence-card {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-left: 5px solid var(--emerald);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .evidence-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 0.25rem;
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      margin-bottom: 0.5rem;
+    }
+    .checklist {
+      list-style: none;
+      margin: 0.75rem 0;
+    }
+    .checklist li {
+      position: relative;
+      padding-left: 1.5rem;
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      margin-bottom: 0.4rem;
+    }
+    .checklist li::before {
+      content: "✔";
+      position: absolute;
+      left: 0;
+      color: var(--emerald);
+      font-weight: bold;
+    }
+    .copy-box {
+      background: #030712;
+      border: 1px dashed #374151;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1rem;
+      position: relative;
+    }
+    .copy-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #fbbf24;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .copy-text {
+      font-size: 0.88rem;
+      color: #e5e7eb;
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* Print styles */
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      .container { max-width: 100%; }
+      header, section, .evidence-card { background: #fff; border-color: #ccc; box-shadow: none; color: #000; page-break-inside: avoid; }
+      h1, h2, h3, strong { color: #000 !important; }
+      .print-btn { display: none; }
+      .copy-box { background: #f8f9fa; border: 1px solid #ccc; color: #000; }
+      .mockup-frame { background: #f8f9fa; border: 1px solid #ddd; color: #333; }
+      th { background: #e5e7eb; color: #000; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <button class="print-btn" onclick="window.print()">
+        🖨️ Imprimir / Guardar en PDF
+      </button>
+      <div class="tag-container">
+        <span class="tag tag-emerald">Entrega Oficial S15</span>
+        <span class="tag tag-blue">Puntuación: 3/3 Puntos</span>
+        <span class="tag tag-purple">PostgreSQL • Drizzle ORM • SSE</span>
+      </div>
+      <h1>Documentación Integral & <span>Guía de Capturas</span></h1>
+      <p class="lead">Manual paso a paso para la demostración y verificación de los 5 requerimientos de la tarea de Marcador en Vivo. Incluye el encuadre exacto de las 6 capturas de pantalla y las descripciones para Canvas.</p>
+    </header>
+
+    <!-- Sección 1: Desglose de la Rúbrica de Evaluación -->
+    <section>
+      <h2>🎯 1. Desglose de la Rúbrica de Calificación (3 Puntos Posibles)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 25%;">Criterio Evaluado</th>
+            <th style="width: 15%;">Puntaje</th>
+            <th style="width: 60%;">Evidencias Clave que Demuestran su Cumplimiento</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>SSE y aislamiento por partido</strong></td>
+            <td><strong style="color: #34d399;">1.0 Punto</strong></td>
+            <td>La aplicación transmite eventos vía <code>text/event-stream</code> en tiempo real mediante <code>EventSource</code>. Gestiona estados (Conectado / Reconectando / Desconectado), limpia la conexión al cambiar de partido y aísla los eventos entre partidos. <em>(Capturas 3 y 6)</em>.</td>
+          </tr>
+          <tr>
+            <td><strong>Persistencia y migraciones</strong></td>
+            <td><strong style="color: #34d399;">1.0 Punto</strong></td>
+            <td>Los datos sobreviven a una recarga de página (F5). El repositorio contiene al menos 2 migraciones SQL versionadas (0000 inicial y 0001 evolutiva) generadas y ejecutadas con Drizzle ORM sobre PostgreSQL. <em>(Capturas 4 y 5)</em>.</td>
+          </tr>
+          <tr>
+            <td><strong>Aplicación, interfaz y evidencia</strong></td>
+            <td><strong style="color: #34d399;">1.0 Punto</strong></td>
+            <td>La vista pública y el panel de administración operan con diseño dinámico deportivo. Cada tipo de evento (gol, falta, cambio, tarjetas) tiene visualización diferenciada. Se incluye el enlace al repositorio GitHub y las 6 capturas solicitadas. <em>(Capturas 1 y 2)</em>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Sección 2: Arquitectura del Flujo de Datos -->
+    <section>
+      <h2>🏗️ 2. Arquitectura del Flujo de Datos y Endpoints</h2>
+      <p>El sistema garantiza que ningún evento sea emitido por SSE antes de haber sido persistido de manera confiable en la base de datos relacional (PostgreSQL):</p>
+
+      <div class="mockup-frame">
+        <div class="mockup-header">
+          <span class="mockup-dot dot-red"></span>
+          <span class="mockup-dot dot-yellow"></span>
+          <span class="mockup-dot dot-green"></span>
+          <span class="mockup-title">Flujo de Ejecución: Registro y Transmisión en Tiempo Real</span>
+        </div>
+        <pre style="color: #38bdf8; line-height: 1.5;">
+[1. Administrador] ───(HTTP POST /api/matches/:id/events)───► [2. Servidor Express]
+                                                                    │
+                                                            (Valida con Zod)
+                                                                    │
+                                                                    ▼
+                                                        [3. Guarda en PostgreSQL]
+                                                        (match_events & local_score)
+                                                                    │
+                                                        (¿Persistencia Exitosa?)
+                                                                    │
+                                                                    ▼
+[5. Espectador SSE] ◄───(text/event-stream por matchId)────── [4. SSE Manager]
+(EventSource en navegador)                                 (Aislamiento estricto)
+        </pre>
+      </div>
+
+      <h3>Catálogo de Endpoints de la API</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Método</th>
+            <th>Ruta</th>
+            <th>Nombre</th>
+            <th>Función en el Sistema</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong style="color: #38bdf8;">GET</strong></td>
+            <td><code>/api/matches</code></td>
+            <td>Lista de Partidos</td>
+            <td>Consulta todos los partidos con marcador, estado y período actual.</td>
+          </tr>
+          <tr>
+            <td><strong style="color: #38bdf8;">GET</strong></td>
+            <td><code>/api/matches/:id</code></td>
+            <td>Detalle de Partido</td>
+            <td>Retorna los datos y marcador del partido específico.</td>
+          </tr>
+          <tr>
+            <td><strong style="color: #38bdf8;">GET</strong></td>
+            <td><code>/api/matches/:id/events</code></td>
+            <td>Historial (HTTP)</td>
+            <td>Carga inicial de eventos ordenada por <code>minute ASC, createdAt ASC</code>.</td>
+          </tr>
+          <tr>
+            <td><strong style="color: #f59e0b;">POST</strong></td>
+            <td><code>/api/matches/:id/events</code></td>
+            <td>Registrar Evento</td>
+            <td>Guarda el evento en BD y luego emite por SSE al canal del partido.</td>
+          </tr>
+          <tr>
+            <td><strong style="color: #10b981;">GET</strong></td>
+            <td><code>/api/matches/:id/events/stream</code></td>
+            <td>Stream SSE</td>
+            <td>Conexión continua <code>text/event-stream</code> para updates en vivo sin polling.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Sección 3: Guía Exhaustiva de Capturas de Pantalla -->
+    <section>
+      <h2>📸 3. Guía Exhaustiva de Capturas de Pantalla (Paso a Paso para Canvas)</h2>
+      <p style="margin-bottom: 1.5rem;">
+        Sigue cada paso detallado a continuación para preparar y capturar las evidencias. Al subir cada imagen a Canvas, pega en la parte inferior el texto sugerido correspondiente.
+      </p>
+
+      <!-- CAPTURA 1 -->
+      <div class="evidence-card">
+        <span class="evidence-badge">EVIDENCIA 1 • REQUISITO 1</span>
+        <h3 style="margin-top: 0; color: #fff;">Vista Pública con al menos Dos Partidos Sintonizables</h3>
+        <p><strong>Objetivo:</strong> Demostrar que el sistema almacena y muestra múltiples partidos con su marcador, estado (En Vivo / Programado / Finalizado), y la línea de tiempo con iconos/colores diferenciados para cada tipo de evento.</p>
+
+        <h4 style="color: #93c5fd; font-size: 0.85rem; text-transform: uppercase; margin: 0.75rem 0 0.35rem;">Instrucciones para Preparar la Pantalla:</h4>
+        <ol style="margin-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+          <li>Abre el navegador en <code>http://localhost:5173</code> y asegúrate de estar en la pestaña <strong>"Vista Pública"</strong>.</li>
+          <li>En la barra superior de partidos deben verse claramente al menos dos tarjetas (ej. <em>Real Madrid vs FC Barcelona</em> y <em>Manchester City vs Liverpool FC</em>).</li>
+          <li>Haz clic sobre el primer partido para que se muestre el marcador central grande y los eventos en el timeline.</li>
+          <li>Toma la captura de la ventana completa del navegador.</li>
+        </ol>
+
+        <div class="mockup-frame">
+          <div class="mockup-header">
+            <span class="mockup-dot dot-red"></span><span class="mockup-dot dot-yellow"></span><span class="mockup-dot dot-green"></span>
+            <span class="mockup-title">Encuadre Esperado: Captura 1</span>
+          </div>
+          <pre style="color: #94a3b8;">
+[ ⚽ MARCADOR EN VIVO ]              [ Vista Pública (Activa) ]  [ Panel Admin ]
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ [Partido 1: Real Madrid (2) vs (1) Barcelona]  [Partido 2: Man City vs Liverpool] │
+└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🔴 EN VIVO  |  Segundo Tiempo (2T)                🟢 Conectado (SSE Activo) │
+│                                                                             │
+│     REAL MADRID             [  2  :  1  ]             FC BARCELONA          │
+│    (Equipo Local)                                    (Equipo Visitante)     │
+└─────────────────────────────────────────────────────────────────────────────┘
+  LÍNEA DE TIEMPO:
+  [24']  ⚽ ¡GOOOOOL! - Vinicius Jr (Real Madrid)
+  [38']  🟨 Tarjeta Amarilla - Dani Carvajal (Real Madrid)
+  [43']  ⚽ ¡GOOOOOL! - Robert Lewandowski (FC Barcelona)
+          </pre>
+        </div>
+
+        <ul class="checklist">
+          <li>Se observan al menos dos partidos en la parte superior.</li>
+          <li>Se visualiza el marcador con equipo local, visitante y estado.</li>
+          <li>Los eventos tienen iconos y colores diferenciados (verde gol, amarillo tarjeta, etc.).</li>
+          <li>La línea de tiempo está ordenada cronológicamente por minuto.</li>
+        </ul>
+
+        <div class="copy-box">
+          <div class="copy-title">📋 Texto listo para copiar y pegar debajo de la Captura 1 en Canvas:</div>
+          <div class="copy-text">
+            "Demostración del Requisito 1: Vista pública con múltiples partidos registrados y sintonizables. Se muestra el equipo local, visitante, estado del partido, marcador en vivo y la línea de tiempo ordenada cronológicamente por minuto con presentación visual diferenciada mediante iconos y colores específicos para goles, tarjetas y cambios."
+          </div>
+        </div>
+      </div>
+
+      <!-- CAPTURA 2 -->
+      <div class="evidence-card">
+        <span class="evidence-badge">EVIDENCIA 2 • REQUISITO 2</span>
+        <h3 style="margin-top: 0; color: #fff;">Vista de Administración con Partido Seleccionado y Evento Registrado</h3>
+        <p><strong>Objetivo:</strong> Demostrar que el administrador puede seleccionar un partido, llenar un formulario validado, enviarlo vía HTTP POST al servidor y recibir confirmación de que fue guardado en la base de datos antes de transmitirse.</p>
+
+        <h4 style="color: #93c5fd; font-size: 0.85rem; text-transform: uppercase; margin: 0.75rem 0 0.35rem;">Instrucciones para Preparar la Pantalla:</h4>
+        <ol style="margin-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+          <li>Haz clic en el botón <strong>"Panel Admin"</strong> en el encabezado.</li>
+          <li>Verifica que en el selector desplegable esté seleccionado el partido que deseas modificar.</li>
+          <li>Rellena los campos del formulario: Tipo de Evento (ej. <em>Gol</em>), Minuto (ej. <em>74</em>), Jugador (ej. <em>Jude Bellingham</em>) y una descripción. <em>(O presiona el botón rápido "⚽ Gol Real Madrid")</em>.</li>
+          <li>Presiona el botón <strong>"Registrar y Transmitir Evento"</strong>.</li>
+          <li>Toma la captura inmediatamente cuando aparezca el banner verde de confirmación: <em>"¡Evento registrado exitosamente en la base de datos y transmitido por SSE a los espectadores!"</em>.</li>
+        </ol>
+
+        <div class="mockup-frame">
+          <div class="mockup-header">
+            <span class="mockup-dot dot-red"></span><span class="mockup-dot dot-yellow"></span><span class="mockup-dot dot-green"></span>
+            <span class="mockup-title">Encuadre Esperado: Captura 2</span>
+          </div>
+          <pre style="color: #94a3b8;">
+[ Panel de Control de Arbitraje & Administración ]     Partido: [Real Madrid vs Barcelona ▼]
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Tipo: [ ⚽ Gol ]  |  Equipo: [ Local ]  |  Minuto: [ 74 ]  |  Jugador: [ Bellingham ]│
+│ Descripción: [ Remate raso al palo izquierdo tras asistencia de Rodrygo.   ]│
+│                                                                             │
+│ [✔ ¡Evento registrado exitosamente en la base de datos y transmitido por SSE!] │
+│                                                                             │
+│                                        [ Registrar y Transmitir Evento 🚀 ] │
+└─────────────────────────────────────────────────────────────────────────────┘
+          </pre>
+        </div>
+
+        <ul class="checklist">
+          <li>Se ve el panel de administración con el selector de partido.</li>
+          <li>El formulario validado muestra todos los datos ingresados.</li>
+          <li>Se observa el mensaje de confirmación de guardado en base de datos.</li>
+        </ul>
+
+        <div class="copy-box">
+          <div class="copy-title">📋 Texto listo para copiar y pegar debajo de la Captura 2 en Canvas:</div>
+          <div class="copy-text">
+            "Demostración del Requisito 2: Vista de administración con formulario validado. Se evidencia la selección del partido y el registro exitoso de un evento mediante una operación HTTP POST, persistido en PostgreSQL antes de emitir la actualización por SSE."
+          </div>
+        </div>
+      </div>
+
+      <!-- CAPTURA 3 -->
+      <div class="evidence-card">
+        <span class="evidence-badge">EVIDENCIA 3 • REQUISITO 3</span>
+        <h3 style="margin-top: 0; color: #fff;">Solicitud SSE Activa en Developer Tools y Evento Recibido vía EventSource</h3>
+        <p><strong>Objetivo:</strong> Demostrar que el canal de datos es una conexión Server-Sent Events nativa con <code>text/event-stream</code>, mostrando los eventos recibidos en tiempo real sin polling.</p>
+
+        <h4 style="color: #93c5fd; font-size: 0.85rem; text-transform: uppercase; margin: 0.75rem 0 0.35rem;">Instrucciones para Preparar la Pantalla:</h4>
+        <ol style="margin-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+          <li>En tu navegador, presiona la tecla <code>F12</code> para abrir las Herramientas de Desarrollo (DevTools).</li>
+          <li>Haz clic en la pestaña <strong>Network (Red)</strong>.</li>
+          <li>Filtra por <strong>Fetch/XHR</strong> o <strong>All</strong> y recarga la página o cambia de partido para que aparezca la solicitud <code>stream</code> (o URL <code>/api/matches/1/events/stream</code>).</li>
+          <li>Haz clic sobre la fila <code>stream</code> y en el panel lateral derecho selecciona la subpestaña <strong>EventStream</strong> (o <em>Mensajes</em>).</li>
+          <li>Registra un evento desde el Admin (o en otra pestaña) para ver cómo entra la fila en vivo en el EventStream.</li>
+          <li>Toma la captura donde se vea tanto el navegador con el badge verde <strong>"Conectado (SSE Activo)"</strong> como las DevTools con la conexión <code>text/event-stream</code> y los paquetes recibidos.</li>
+        </ol>
+
+        <div class="mockup-frame">
+          <div class="mockup-header">
+            <span class="mockup-dot dot-red"></span><span class="mockup-dot dot-yellow"></span><span class="mockup-dot dot-green"></span>
+            <span class="mockup-title">Encuadre Esperado: Captura 3</span>
+          </div>
+          <pre style="color: #94a3b8;">
+[ DevTools - Network Tab ]
+Name                     Status   Type           Content-Type
+stream                   200 OK   eventsource    text/event-stream; charset=utf-8
+──────────────────────────────────────────────────────────────────────────────
+Headers | Preview | Response | [ EventStream ] | Timing
+──────────────────────────────────────────────────────────────────────────────
+Data                                              Event         Time
+{"matchId":1,"clientId":"a8f2"}                   connected     10:15:02
+{"id":7,"matchId":1,"minute":74,"eventType":"goal"} match_event   10:15:30
+{"id":1,"localScore":3,"awayScore":1}              score_update  10:15:30
+          </pre>
+        </div>
+
+        <ul class="checklist">
+          <li>Se ve la solicitud abierta a <code>/events/stream</code> con tipo <code>eventsource</code> o <code>text/event-stream</code>.</li>
+          <li>En la subpestaña EventStream se observan los eventos (ej. <code>match_event</code>, <code>score_update</code>).</li>
+          <li>El badge de la interfaz muestra "Conectado (SSE Activo)".</li>
+        </ul>
+
+        <div class="copy-box">
+          <div class="copy-title">📋 Texto listo para copiar y pegar debajo de la Captura 3 en Canvas:</div>
+          <div class="copy-text">
+            "Demostración del Requisito 3: Solicitud SSE persistente activa (text/event-stream) en las herramientas de desarrollo del navegador. Se evidencia la recepción en tiempo real de eventos mediante EventSource sin utilizar polling, con el indicador de estado 'Conectado' en la interfaz."
+          </div>
+        </div>
+      </div>
+
+      <!-- CAPTURA 4 -->
+      <div class="evidence-card">
+        <span class="evidence-badge">EVIDENCIA 4 • REQUISITO 4</span>
+        <h3 style="margin-top: 0; color: #fff;">Archivos de Migraciones Versionadas y Ejecución Correcta en Terminal</h3>
+        <p><strong>Objetivo:</strong> Demostrar que el esquema de la base de datos relacional está versionado mediante al menos dos migraciones de Drizzle ORM (inicial y evolutiva) y que se aplican correctamente con scripts documentados.</p>
+
+        <h4 style="color: #93c5fd; font-size: 0.85rem; text-transform: uppercase; margin: 0.75rem 0 0.35rem;">Instrucciones para Preparar la Pantalla:</h4>
+        <ol style="margin-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+          <li>Abre tu editor VS Code con el proyecto abierto.</li>
+          <li>En el explorador de archivos izquierdo, expande la carpeta <code>drizzle/</code> para que se lean claramente los dos archivos:
+            <br>• <code>0000_initial_schema.sql</code>
+            <br>• <code>0001_evolve_schema.sql</code>
+          </li>
+          <li>Abre la terminal integrada en VS Code y ejecuta:
+            <div style="background: #020617; padding: 0.4rem 0.75rem; border-radius: 0.3rem; margin: 0.4rem 0; font-family: monospace; color: #38bdf8;">npm run db:migrate</div>
+          </li>
+          <li>Toma la captura mostrando a la izquierda los archivos de migración y a la derecha o abajo la terminal con el mensaje de éxito: <em>"✅ ¡Todas las migraciones fueron aplicadas con éxito a PostgreSQL!"</em>.</li>
+        </ol>
+
+        <div class="mockup-frame">
+          <div class="mockup-header">
+            <span class="mockup-dot dot-red"></span><span class="mockup-dot dot-yellow"></span><span class="mockup-dot dot-green"></span>
+            <span class="mockup-title">Encuadre Esperado: Captura 4</span>
+          </div>
+          <pre style="color: #94a3b8;">
+EXPLORER                     TERMINAL
+▼ drizzle/                   PS D:\Desarrollo Web> npm run db:migrate
+  📄 0000_initial_schema.sql  ====================================================
+  📄 0001_evolve_schema.sql   🔄 Iniciando aplicación de migraciones versionadas...
+  ▼ meta/                    ====================================================
+    📄 _journal.json         ✅ ¡Todas las migraciones fueron aplicadas con éxito a PostgreSQL!
+          </pre>
+        </div>
+
+        <ul class="checklist">
+          <li>Se observan los archivos <code>0000_initial_schema.sql</code> y <code>0001_evolve_schema.sql</code>.</li>
+          <li>La terminal muestra la ejecución exitosa de <code>npm run db:migrate</code>.</li>
+        </ul>
+
+        <div class="copy-box">
+          <div class="copy-title">📋 Texto listo para copiar y pegar debajo de la Captura 4 en Canvas:</div>
+          <div class="copy-text">
+            "Demostración del Requisito 4: Persistencia y migraciones versionadas con Drizzle ORM en PostgreSQL. Se evidencian los dos archivos de migración (0000 inicial y 0001 evolutiva) en el repositorio y la ejecución correcta del comando de migración en la terminal."
+          </div>
+        </div>
+      </div>
+
+      <!-- CAPTURA 5 -->
+      <div class="evidence-card">
+        <span class="evidence-badge">EVIDENCIA 5 • REQUISITO 5</span>
+        <h3 style="margin-top: 0; color: #fff;">Marcador y Línea de Tiempo Conservados tras Recarga del Navegador (F5)</h3>
+        <p><strong>Objetivo:</strong> Demostrar que los datos no residen únicamente en memoria volátil; al recargar con F5, la aplicación consulta la base de datos vía HTTP tradicional, recupera el estado íntegro y vuelve a enganchar el stream SSE.</p>
+
+        <h4 style="color: #93c5fd; font-size: 0.85rem; text-transform: uppercase; margin: 0.75rem 0 0.35rem;">Instrucciones para Preparar la Pantalla:</h4>
+        <ol style="margin-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+          <li>En el Panel Admin, registra un nuevo gol para alterar el marcador (por ejemplo que quede 3 a 1).</li>
+          <li>Ve a la Vista Pública y comprueba que el nuevo marcador y el gol aparecen en pantalla.</li>
+          <li>Presiona la tecla <code>F5</code> para forzar una recarga completa de la página.</li>
+          <li>Toma la captura tras la recarga, mostrando cómo el marcador (3 - 1) y todos los eventos permanecen intactos y el badge vuelve a marcar 🟢 Conectado.</li>
+        </ol>
+
+        <ul class="checklist">
+          <li>Se observa el marcador actualizado conservado tras la recarga.</li>
+          <li>El timeline contiene todos los eventos históricos recuperados de PostgreSQL.</li>
+        </ul>
+
+        <div class="copy-box">
+          <div class="copy-title">📋 Texto listo para copiar y pegar debajo de la Captura 5 en Canvas:</div>
+          <div class="copy-text">
+            "Demostración del Requisito 5: Recuperación y persistencia del estado. Al recargar el navegador (F5), la aplicación recupera el marcador y el historial completo desde la base de datos mediante solicitudes HTTP normales, abriendo posteriormente la conexión SSE para recibir eventos nuevos sin pérdidas."
+          </div>
+        </div>
+      </div>
+
+      <!-- CAPTURA 6 -->
+      <div class="evidence-card">
+        <span class="evidence-badge">EVIDENCIA 6 • REQUISITOS 3 Y 5</span>
+        <h3 style="margin-top: 0; color: #fff;">Demostración de Aislamiento de Eventos entre Dos Partidos Distintos</h3>
+        <p><strong>Objetivo:</strong> Demostrar que un evento emitido para el Partido 1 NO llega ni se visualiza en el Partido 2, garantizando el aislamiento de canales SSE en el servidor.</p>
+
+        <h4 style="color: #93c5fd; font-size: 0.85rem; text-transform: uppercase; margin: 0.75rem 0 0.35rem;">Instrucciones para Preparar la Pantalla:</h4>
+        <ol style="margin-left: 1.25rem; font-size: 0.9rem; color: #cbd5e1;">
+          <li>Abre dos ventanas del navegador y colócalas en pantalla dividida (presiona <code>Win + Flecha Izquierda</code> para la primera y <code>Win + Flecha Derecha</code> para la segunda).</li>
+          <li><strong>Ventana Izquierda:</strong> Sintoniza el <strong>Partido 1</strong> (<em>Real Madrid vs Barcelona</em>).</li>
+          <li><strong>Ventana Derecha:</strong> Sintoniza el <strong>Partido 2</strong> (<em>Manchester City vs Liverpool</em>).</li>
+          <li>En el Panel Admin, envía un evento (ej. un gol) exclusivamente para el <strong>Partido 1</strong>.</li>
+          <li>Toma la captura de toda la pantalla (mostrando ambas ventanas una al lado de la otra): se verá el nuevo evento y gol reflejado en la Ventana Izquierda, mientras la Ventana Derecha permanece con su marcador y eventos sin ninguna alteración.</li>
+        </ol>
+
+        <div class="mockup-frame">
+          <div class="mockup-header">
+            <span class="mockup-dot dot-red"></span><span class="mockup-dot dot-yellow"></span><span class="mockup-dot dot-green"></span>
+            <span class="mockup-title">Encuadre Esperado: Captura 6 (Pantalla Dividida)</span>
+          </div>
+          <pre style="color: #94a3b8;">
+[ VENTANA IZQUIERDA - PARTIDO 1 ]             │ [ VENTANA DERECHA - PARTIDO 2 ]
+REAL MADRID (3) vs (1) BARCELONA               │ MANCHESTER CITY (1) vs (1) LIVERPOOL
+🟢 Conectado (SSE Partido 1)                  │ 🟢 Conectado (SSE Partido 2)
+                                               │
+Línea de Tiempo:                               │ Línea de Tiempo:
+[74'] ⚽ ¡GOOOOOL! - Vinicius Jr (NUEVO)       │ [18'] ⚽ ¡Gol! - Haaland
+[43'] ⚽ ¡Gol! - Lewandowski                   │ [40'] ⚽ ¡Gol! - Salah
+[24'] ⚽ ¡Gol! - Vinicius Jr                   │ (Sin alteraciones, totalmente aislado)
+          </pre>
+        </div>
+
+        <ul class="checklist">
+          <li>Se aprecian dos ventanas sintonizadas a partidos diferentes.</li>
+          <li>El evento nuevo aparece única y exclusivamente en el partido al que fue asignado.</li>
+        </ul>
+
+        <div class="copy-box">
+          <div class="copy-title">📋 Texto listo para copiar y pegar debajo de la Captura 6 en Canvas:</div>
+          <div class="copy-text">
+            "Demostración de los Requisitos 3 y 5: Aislamiento estricto de eventos entre partidos. En dos ventanas simultáneas con partidos distintos, el evento transmitido por SSE al Partido 1 es recibido en su stream sin propagarse ni afectar la línea de tiempo o marcador del Partido 2."
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sección 4: Checklist Final de Entrega -->
+    <section>
+      <h2>✅ 4. Checklist Final para la Entrega en Canvas</h2>
+      <p style="margin-bottom: 1rem;">Antes de enviar tu tarea en Canvas, asegúrate de haber completado estos tres puntos:</p>
+
+      <ul class="checklist" style="space-y: 0.5rem;">
+        <li><strong>Enlace al Repositorio de GitHub:</strong> Código completo, carpeta <code>drizzle/</code> con las 2 migraciones, <code>.env.example</code> sin contraseñas y <code>README.md</code>.</li>
+        <li><strong>6 Capturas de Pantalla Insertadas o Adjuntadas:</strong> Las 6 evidencias tomadas siguiendo este manual.</li>
+        <li><strong>Descripción Breve Debajo de Cada Captura:</strong> Haber copiado y pegado los textos descriptivos sugeridos para que el profesor identifique de inmediato qué requisito valida cada captura.</li>
+      </ul>
+    </section>
+  </div>
+</body>
+</html>
