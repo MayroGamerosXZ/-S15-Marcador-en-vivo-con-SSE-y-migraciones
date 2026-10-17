@@ -44,7 +44,7 @@ matchesRouter.get('/', async (_req: Request, res: Response) => {
  */
 matchesRouter.get('/:id', async (req: Request, res: Response) => {
   try {
-    const matchId = parseInt(req.params.id);
+    const matchId = parseInt(req.params.id as string);
     if (isNaN(matchId)) {
       return res.status(400).json({ error: 'ID de partido inválido' });
     }
@@ -68,7 +68,7 @@ matchesRouter.get('/:id', async (req: Request, res: Response) => {
  */
 matchesRouter.get('/:id/events', async (req: Request, res: Response) => {
   try {
-    const matchId = parseInt(req.params.id);
+    const matchId = parseInt(req.params.id as string);
     if (isNaN(matchId)) {
       return res.status(400).json({ error: 'ID de partido inválido' });
     }
@@ -94,7 +94,7 @@ matchesRouter.get('/:id/events', async (req: Request, res: Response) => {
  */
 matchesRouter.post('/:id/events', async (req: Request, res: Response) => {
   try {
-    const matchId = parseInt(req.params.id);
+    const matchId = parseInt(req.params.id as string);
     if (isNaN(matchId)) {
       return res.status(400).json({ error: 'ID de partido inválido' });
     }
@@ -174,7 +174,7 @@ matchesRouter.post('/:id/events', async (req: Request, res: Response) => {
  * Función: Abre el stream en tiempo real exclusivo para el partido solicitado (Requisito 3)
  */
 matchesRouter.get('/:id/events/stream', async (req: Request, res: Response) => {
-  const matchId = parseInt(req.params.id);
+  const matchId = parseInt(req.params.id as string);
   if (isNaN(matchId)) {
     return res.status(400).end('ID de partido inválido');
   }
