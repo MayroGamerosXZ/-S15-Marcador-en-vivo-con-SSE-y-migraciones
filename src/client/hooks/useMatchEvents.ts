@@ -67,6 +67,22 @@ export function useMatchEvents(matchId: number | null) {
       }
     });
 
+    // Evento de reinicio de partido (goles, cambios y tarjetas reseteados)
+    es.addEventListener('match_reset', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data);
+        console.log('[SSE Frontend] Partido reiniciado vía SSE:', data);
+        // Limpiar registro de eventos para que no queden congelados / pasmados
+        eventIdsRef.current.clear();
+        setEvents([]);
+        if (data.match) {
+          setMatch(data.match);
+        }
+      } catch (err) {
+        console.error('[SSE Error al reiniciar partido]:', err);
+      }
+    });
+
     // Manejo de errores y reconexión automática resiliente
     es.onerror = () => {
       console.warn(`[SSE Frontend] Conexión interrumpida para partido ${id}`);
@@ -156,5 +172,60 @@ export function useMatchEvents(matchId: number | null) {
     }
   }, [matchId, initSSE]);
 
-  return { match, events, connectionStatus, loading, error, setMatch, setEvents, reconnect };
+  // Método para reiniciar el partido en backend y frontend (borra goles, tarjetas y cambios)
+  const resetMatch = useCallback(async () => {
+    if (!matchId) return;
+    try {
+      // Limpieza preventiva instantánea para sensación de fluidez inmediata
+      eventIdsRef.current.clear();
+      setEvents([]);
+
+      const res = await fetch(`/api/matches/${matchId}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.match) {
+          setMatch(data.match);
+        }
+      }
+    } catch (err) {
+      console.error('[Error al reiniciar partido]:', err);
+    }
+  }, [matchId]);
+
+  // Método para actualizar el estado del partido (ej. al terminar a los 90 + extra)
+  const finishMatch = useCallback(async () => {
+    if (!matchId) return;
+    try {
+      const res = await fetch(`/api/matches/${matchId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'finished', period: 'finished' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.match) {
+          setMatch(data.match);
+        }
+      }
+    } catch (err) {
+      console.error('[Error al finalizar partido]:', err);
+    }
+  }, [matchId]);
+
+  return {
+    match,
+    events,
+    connectionStatus,
+    loading,
+    error,
+    setMatch,
+    setEvents,
+    reconnect,
+    resetMatch,
+    finishMatch
+  };
 }

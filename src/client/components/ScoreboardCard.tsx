@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Match, ConnectionStatus } from '../types';
 import { MatchClockState } from '../hooks/useMatchClock';
 import { ConnectionBadge } from './ConnectionBadge';
 import { TeamLogo } from './TeamLogo';
-import { Flame, Clock, Radio, Trophy, Activity, Play, Pause, RotateCcw, Timer } from 'lucide-react';
+import {
+  Flame,
+  Clock,
+  Radio,
+  Trophy,
+  Activity,
+  Play,
+  Pause,
+  RotateCcw,
+  Timer,
+  CheckCircle2,
+  FastForward
+} from 'lucide-react';
 
 interface Props {
   match: Match | null;
@@ -11,6 +23,7 @@ interface Props {
   eventsCount: number;
   onReconnect?: () => void;
   matchClock?: MatchClockState;
+  onResetMatch?: () => Promise<void> | void;
 }
 
 export const ScoreboardCard: React.FC<Props> = ({
@@ -18,18 +31,26 @@ export const ScoreboardCard: React.FC<Props> = ({
   connectionStatus,
   eventsCount,
   onReconnect,
-  matchClock
+  matchClock,
+  onResetMatch,
 }) => {
+  const [customExtra, setCustomExtra] = useState<string>('3');
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+  const [resetSuccess, setResetSuccess] = useState<boolean>(false);
+
   if (!match) {
     return (
       <div className="p-12 text-center stadium-border rounded-3xl">
         <Trophy className="w-12 h-12 text-emerald-400 mx-auto mb-3 animate-bounce" />
-        <p className="text-slate-300 text-base font-semibold">Selecciona un partido del fixture para sintonizar la transmisión en vivo.</p>
+        <p className="text-slate-300 text-base font-semibold">
+          Selecciona un partido del fixture para sintonizar la transmisión en vivo.
+        </p>
       </div>
     );
   }
 
   const isLive = match.status === 'live';
+  const isFinished = match.status === 'finished' || matchClock?.period === 'finished';
 
   // Configuración de atmósfera de color según los equipos
   const getTeamColorStyle = (teamName: string) => {
@@ -46,6 +67,33 @@ export const ScoreboardCard: React.FC<Props> = ({
   const localStyle = getTeamColorStyle(match.localTeam);
   const awayStyle = getTeamColorStyle(match.awayTeam);
 
+  const handleResetMatch = async () => {
+    if (isResetting) return;
+    setIsResetting(true);
+    try {
+      if (onResetMatch) {
+        await onResetMatch();
+      }
+      if (matchClock) {
+        matchClock.resetClock();
+      }
+      setResetSuccess(true);
+      setTimeout(() => setResetSuccess(false), 2500);
+    } catch (err) {
+      console.error('Error al reiniciar:', err);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleCustomExtraSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseInt(customExtra, 10);
+    if (!isNaN(val) && matchClock) {
+      matchClock.assignExtraTime(val);
+    }
+  };
+
   return (
     <div className="relative overflow-hidden rounded-3xl stadium-border p-6 sm:p-8 shadow-2xl border border-slate-700/60">
       {/* Luces y reflectores de fondo */}
@@ -57,14 +105,23 @@ export const ScoreboardCard: React.FC<Props> = ({
         <div className="flex flex-wrap items-center gap-3">
           {/* Badge de Estado del Partido */}
           <span className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-widest uppercase flex items-center gap-2 shadow-lg ${
-            isLive
+            isFinished
+              ? 'bg-slate-800 text-slate-300 border border-slate-700'
+              : isLive
               ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-red-500/30 animate-pulse'
-              : match.status === 'finished'
-              ? 'bg-slate-800 text-slate-300'
               : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
           }`}>
-            {isLive ? <Flame className="w-4 h-4 fill-white" /> : <Clock className="w-4 h-4" />}
-            {isLive ? 'EN VIVO' : match.status === 'finished' ? 'FINALIZADO' : 'PROGRAMADO'}
+            {isFinished ? (
+              <>🏁 FINALIZADO</>
+            ) : isLive ? (
+              <>
+                <Flame className="w-4 h-4 fill-white" /> EN VIVO
+              </>
+            ) : (
+              <>
+                <Clock className="w-4 h-4" /> PROGRAMADO
+              </>
+            )}
           </span>
 
           {/* Reloj Dinámico de Partido Acelerado (90 min en ~2.5 min) */}
@@ -88,9 +145,9 @@ export const ScoreboardCard: React.FC<Props> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={matchClock.resetClock}
+                  onClick={() => matchClock.resetClock()}
                   className="text-slate-400 hover:text-white p-0.5 rounded transition-all"
-                  title="Reiniciar a Minuto 1'"
+                  title="Reiniciar Reloj a 1'"
                 >
                   <RotateCcw className="w-3 h-3" />
                 </button>
@@ -102,14 +159,181 @@ export const ScoreboardCard: React.FC<Props> = ({
           <span className="text-xs font-bold text-slate-200 bg-slate-900/90 px-3.5 py-1.5 rounded-full border border-slate-700 flex items-center gap-1.5 shadow-inner">
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
             {matchClock
-              ? (matchClock.period === 'first_half' ? '1er Tiempo (1T)' : matchClock.period === 'halftime' ? 'Entretiempo (HT)' : matchClock.period === 'second_half' ? '2do Tiempo (2T)' : 'Finalizado')
-              : (match.period === 'first_half' ? '1er Tiempo (1T)' : match.period === 'second_half' ? '2do Tiempo (2T)' : match.period === 'halftime' ? 'Entretiempo' : 'En Juego')}
+              ? (matchClock.period === 'first_half'
+                  ? '1er Tiempo (1T)'
+                  : matchClock.period === 'halftime'
+                  ? 'Entretiempo (HT)'
+                  : matchClock.period === 'second_half'
+                  ? (matchClock.extraMinutes > 0 ? `2T +${matchClock.extraMinutes}' Extra` : '2do Tiempo (2T)')
+                  : 'Finalizado')
+              : (match.period === 'first_half'
+                  ? '1er Tiempo (1T)'
+                  : match.period === 'second_half'
+                  ? '2do Tiempo (2T)'
+                  : match.period === 'halftime'
+                  ? 'Entretiempo'
+                  : 'En Juego')}
           </span>
+
+          {/* Atajos de prueba rápida para evaluación (1', 45', 89') */}
+          {matchClock && (
+            <div className="hidden sm:flex items-center gap-1 bg-slate-950/70 border border-slate-800 px-2 py-1 rounded-full text-[11px] text-slate-400">
+              <FastForward className="w-3 h-3 text-cyan-400" />
+              <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Saltar:</span>
+              <button
+                type="button"
+                onClick={() => matchClock.setSpecificMinute(1)}
+                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-cyan-300 font-bold"
+                title="Ir al inicio"
+              >
+                1'
+              </button>
+              <button
+                type="button"
+                onClick={() => matchClock.setSpecificMinute(45)}
+                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-cyan-300 font-bold"
+                title="Ir al Entretiempo"
+              >
+                45'
+              </button>
+              <button
+                type="button"
+                onClick={() => matchClock.setSpecificMinute(89)}
+                className="px-1.5 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold border border-amber-500/30"
+                title="Probar pausa en minuto 90'"
+              >
+                89' ⏱️
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Badge Oficial SSE */}
-        <ConnectionBadge status={connectionStatus} matchId={match.id} onReconnect={onReconnect} />
+        {/* Botones de acción derecha: Reinicio Completo y Badge SSE */}
+        <div className="flex flex-wrap items-center gap-2">
+          {onResetMatch && (
+            <button
+              type="button"
+              onClick={handleResetMatch}
+              disabled={isResetting}
+              className="px-3.5 py-1.5 rounded-full bg-slate-900/90 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50"
+              title="Reiniciar marcador a 0:0, eliminar goles, cambios y tarjetas"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 text-rose-400 ${isResetting ? 'animate-spin' : ''}`} />
+              <span>{isResetting ? 'Reiniciando...' : 'Reiniciar Partido'}</span>
+            </button>
+          )}
+
+          {/* Badge Oficial SSE */}
+          <ConnectionBadge status={connectionStatus} matchId={match.id} onReconnect={onReconnect} />
+        </div>
       </div>
+
+      {/* Alerta de confirmación de reinicio */}
+      {resetSuccess && (
+        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>¡Partido reiniciado exitosamente! Goles, tarjetas y cambios eliminados. Marcador en 0:0 y reloj en minuto 1'.</span>
+        </div>
+      )}
+
+      {/* BANNER 1: ALERTA DE MINUTO 90 CUMPLIDO (PAUSA AUTOMÁTICA Y ASIGNACIÓN DE TIEMPO EXTRA) */}
+      {matchClock?.isWaitingForExtraTime && (
+        <div className="mb-6 p-5 rounded-3xl bg-gradient-to-r from-amber-500/15 via-amber-600/10 to-amber-500/15 border-2 border-amber-500/50 shadow-2xl backdrop-blur-md animate-fadeIn">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2 text-amber-300 font-black text-sm uppercase tracking-wider mb-1">
+                <Timer className="w-5 h-5 text-amber-400 animate-pulse" />
+                <span>⏱️ ¡Minuto 90 Cumplido! Reloj Pausado Automáticamente</span>
+              </div>
+              <p className="text-xs text-slate-300">
+                El tiempo reglamentario ha finalizado. Asigna cuántos minutos de descuento/tiempo extra se jugarán:
+              </p>
+            </div>
+
+            {/* Selector de minutos extra predefinidos y personalizado */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {[2, 3, 4, 5, 6].map((mins) => (
+                <button
+                  key={mins}
+                  type="button"
+                  onClick={() => matchClock.assignExtraTime(mins)}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500/25 hover:bg-amber-500/40 border border-amber-400/60 text-amber-200 font-black text-xs transition-all shadow-md active:scale-95 hover:scale-105"
+                >
+                  +{mins}' min
+                </button>
+              ))}
+
+              <form onSubmit={handleCustomExtraSubmit} className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="15"
+                  value={customExtra}
+                  onChange={(e) => setCustomExtra(e.target.value)}
+                  className="w-14 px-2 py-2 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold text-center focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded-xl bg-amber-500 text-slate-950 font-black text-xs hover:bg-amber-400 transition-all shadow active:scale-95"
+                >
+                  Fijar
+                </button>
+              </form>
+
+              <button
+                type="button"
+                onClick={() => matchClock.assignExtraTime(0)}
+                className="px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 font-bold text-xs transition-all active:scale-95"
+                title="Pitar el final sin descuento"
+              >
+                🏁 Finalizar (0')
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BANNER 2: TIEMPO EXTRA EN CURSO */}
+      {matchClock && matchClock.extraMinutes > 0 && !isFinished && !matchClock.isWaitingForExtraTime && (
+        <div className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-amber-300 font-bold">
+            <Timer className="w-4 h-4 text-amber-400 animate-spin" />
+            <span>
+              ⚡ Tiempo Añadido en Juego: <span className="underline font-black">+{matchClock.extraMinutes} minutos</span> (El partido terminará automáticamente al cumplirse el minuto {90 + matchClock.extraMinutes}')
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => matchClock.assignExtraTime(0)}
+            className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-bold text-[11px] border border-rose-500/30"
+          >
+            Pitar Final Anticipado
+          </button>
+        </div>
+      )}
+
+      {/* BANNER 3: PARTIDO FINALIZADO OFICIALMENTE */}
+      {isFinished && (
+        <div className="mb-6 p-5 rounded-3xl bg-slate-900/90 border-2 border-slate-700 shadow-2xl text-center animate-fadeIn">
+          <div className="text-base sm:text-lg font-black text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2">
+            <span>🏁 ¡FINAL DEL PARTIDO! • TIEMPO CUMPLIDO</span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1 mb-4">
+            Los 90 minutos reglamentarios {matchClock?.extraMinutes ? `más los ${matchClock.extraMinutes} minutos añadidos` : ''} han concluido. El marcador queda fijado.
+          </p>
+          {onResetMatch && (
+            <button
+              type="button"
+              onClick={handleResetMatch}
+              disabled={isResetting}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-xl active:scale-95 inline-flex items-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Reiniciar Partido (Nuevo Encuentro 0:0 y Borrar Eventos)</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Escenario Central: Escudo Local, Marcador LED y Escudo Visitante */}
       <div className="grid grid-cols-1 lg:grid-cols-11 items-center gap-6 py-4">

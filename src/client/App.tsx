@@ -52,9 +52,6 @@ export const App: React.FC = () => {
   const [loadingMatches, setLoadingMatches] = useState<boolean>(false);
   const [matchesError, setMatchesError] = useState<string | null>(null);
 
-  // Hook de reloj acelerado entrelazado (90 minutos transcurren en ~2.5 minutos reales)
-  const matchClock = useMatchClock(selectedMatchId, 1);
-
   // Hook para gestión de eventos SSE en tiempo real para el partido seleccionado
   const {
     match: currentMatch,
@@ -64,8 +61,25 @@ export const App: React.FC = () => {
     error: matchError,
     setMatch,
     setEvents,
-    reconnect
+    reconnect,
+    resetMatch,
+    finishMatch
   } = useMatchEvents(selectedMatchId);
+
+  // Hook de reloj acelerado entrelazado (90 minutos transcurren en ~2.5 minutos reales)
+  // Con pausa automática a los 90', asignación de tiempo extra y finalización automática
+  const matchClock = useMatchClock(selectedMatchId, 1, {
+    onMatchFinished: () => {
+      finishMatch();
+    }
+  });
+
+  // Función global para reiniciar el partido seleccionado (borra eventos, marcador a 0:0 y reloj a 1')
+  const handleResetMatch = async () => {
+    await resetMatch();
+    matchClock.resetClock();
+    fetchMatches();
+  };
 
   // Carga inicial y continua de partidos con auto-reintento
   const fetchMatches = async (retryCount = 3) => {
@@ -152,6 +166,7 @@ export const App: React.FC = () => {
               eventsCount={events.length}
               onReconnect={reconnect}
               matchClock={matchClock}
+              onResetMatch={handleResetMatch}
             />
 
             {/* Línea de Tiempo con Iconos y Colores Diferenciados */}
@@ -175,6 +190,7 @@ export const App: React.FC = () => {
               onSelectMatch={(id) => setSelectedMatchId(id)}
               events={events}
               matchClock={matchClock}
+              onResetMatch={handleResetMatch}
               onEventCreated={(updatedMatch, newEvent) => {
                 // Sincronización instantánea directa de marcador y timeline
                 if (updatedMatch) {
@@ -203,6 +219,7 @@ export const App: React.FC = () => {
                 eventsCount={events.length}
                 onReconnect={reconnect}
                 matchClock={matchClock}
+                onResetMatch={handleResetMatch}
               />
             </div>
 

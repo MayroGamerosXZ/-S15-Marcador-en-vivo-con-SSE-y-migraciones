@@ -298,6 +298,89 @@ class DBService {
 
     return { event: createdEvent, match: updatedMatch };
   }
+
+  /**
+   * Reinicia un partido: limpia goles, tarjetas, cambios y restablece marcador a 0:0
+   */
+  public async resetMatch(matchId: number): Promise<Match> {
+    const isOnline = await this.isPostgresOnline();
+    let updatedMatch: Match | null = null;
+
+    if (isOnline) {
+      try {
+        // Borrar eventos del partido en PostgreSQL
+        await db.delete(matchEvents).where(eq(matchEvents.matchId, matchId));
+
+        // Restablecer marcador y período a 0:0, live y first_half
+        const [upd] = await db.update(matches)
+          .set({
+            localScore: 0,
+            awayScore: 0,
+            status: 'live',
+            period: 'first_half',
+            updatedAt: new Date()
+          })
+          .where(eq(matches.id, matchId))
+          .returning();
+        updatedMatch = upd;
+      } catch (err) {
+        console.warn('Error reiniciando en Postgres, aplicando en fallback:', err);
+      }
+    }
+
+    // Limpiar en memoria fallback
+    for (let i = fallbackEvents.length - 1; i >= 0; i--) {
+      if (fallbackEvents[i].matchId === matchId) {
+        fallbackEvents.splice(i, 1);
+      }
+    }
+
+    const matchIndex = fallbackMatches.findIndex(m => m.id === matchId);
+    if (matchIndex !== -1) {
+      fallbackMatches[matchIndex].localScore = 0;
+      fallbackMatches[matchIndex].awayScore = 0;
+      fallbackMatches[matchIndex].status = 'live';
+      fallbackMatches[matchIndex].period = 'first_half';
+      fallbackMatches[matchIndex].updatedAt = new Date();
+      if (!updatedMatch) updatedMatch = fallbackMatches[matchIndex];
+    }
+
+    return updatedMatch || fallbackMatches[0];
+  }
+
+  /**
+   * Actualiza el estado o período de un partido (por ejemplo al finalizar a los 90+ extra)
+   */
+  public async updateMatchStatus(matchId: number, status: string, period: string): Promise<Match> {
+    const isOnline = await this.isPostgresOnline();
+    let updatedMatch: Match | null = null;
+
+    if (isOnline) {
+      try {
+        const [upd] = await db.update(matches)
+          .set({
+            status,
+            period,
+            updatedAt: new Date()
+          })
+          .where(eq(matches.id, matchId))
+          .returning();
+        updatedMatch = upd;
+      } catch (err) {
+        console.warn('Error actualizando estado en Postgres, aplicando en fallback:', err);
+      }
+    }
+
+    const matchIndex = fallbackMatches.findIndex(m => m.id === matchId);
+    if (matchIndex !== -1) {
+      fallbackMatches[matchIndex].status = status;
+      fallbackMatches[matchIndex].period = period;
+      fallbackMatches[matchIndex].updatedAt = new Date();
+      if (!updatedMatch) updatedMatch = fallbackMatches[matchIndex];
+    }
+
+    return updatedMatch || fallbackMatches[0];
+  }
 }
 
 export const dbService = new DBService();

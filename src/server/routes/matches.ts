@@ -170,6 +170,68 @@ matchesRouter.post('/:id/events', async (req: Request, res: Response) => {
 });
 
 /**
+ * 5. POST /api/matches/:id/reset
+ * Nombre: Reiniciar partido, goles y eventos a 0:0
+ * Función: Limpia las incidencias del partido, restablece el marcador a 0:0 y emite por SSE
+ */
+matchesRouter.post('/:id/reset', async (req: Request, res: Response) => {
+  try {
+    const matchId = parseInt(req.params.id as string);
+    if (isNaN(matchId)) {
+      return res.status(400).json({ error: 'ID de partido inválido' });
+    }
+
+    const updatedMatch = await dbService.resetMatch(matchId);
+
+    // Notificar a todos los espectadores del partido vía SSE
+    sseManager.broadcastToMatch(matchId, 'match_reset', {
+      matchId,
+      message: 'El partido ha sido reiniciado a 0-0 sin incidencias.',
+      match: updatedMatch
+    });
+    sseManager.broadcastToMatch(matchId, 'score_update', updatedMatch);
+
+    res.json({
+      message: 'Partido reiniciado exitosamente',
+      match: updatedMatch
+    });
+  } catch (error: any) {
+    console.error('Error resetting match:', error);
+    res.status(500).json({ error: 'Error al reiniciar el partido' });
+  }
+});
+
+/**
+ * 6. PATCH /api/matches/:id/status
+ * Nombre: Actualizar estado de partido (ej: Finalizado a los 90+ extra)
+ */
+matchesRouter.patch('/:id/status', async (req: Request, res: Response) => {
+  try {
+    const matchId = parseInt(req.params.id as string);
+    if (isNaN(matchId)) {
+      return res.status(400).json({ error: 'ID de partido inválido' });
+    }
+
+    const { status, period } = req.body;
+    const updatedMatch = await dbService.updateMatchStatus(
+      matchId,
+      status || 'finished',
+      period || 'finished'
+    );
+
+    sseManager.broadcastToMatch(matchId, 'score_update', updatedMatch);
+
+    res.json({
+      message: 'Estado del partido actualizado',
+      match: updatedMatch
+    });
+  } catch (error: any) {
+    console.error('Error updating match status:', error);
+    res.status(500).json({ error: 'Error al actualizar estado del partido' });
+  }
+});
+
+/**
  * 5. GET /api/matches/:id/events/stream
  * Nombre: Conexión Server-Sent Events (SSE)
  * Función: Abre el stream en tiempo real exclusivo para el partido solicitado (Requisito 3)

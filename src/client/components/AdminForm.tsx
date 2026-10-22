@@ -16,7 +16,8 @@ import {
   Flame,
   Users,
   AlertTriangle,
-  Timer
+  Timer,
+  RotateCcw
 } from 'lucide-react';
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
   onEventCreated?: (updatedMatch?: Match, newEvent?: any) => void;
   events?: MatchEvent[];
   matchClock?: MatchClockState;
+  onResetMatch?: () => Promise<void> | void;
 }
 
 export const AdminForm: React.FC<Props> = ({
@@ -34,7 +36,8 @@ export const AdminForm: React.FC<Props> = ({
   onSelectMatch,
   onEventCreated,
   events = [],
-  matchClock
+  matchClock,
+  onResetMatch
 }) => {
   const currentMatch = matches.find(m => m.id === selectedMatchId);
 
@@ -350,7 +353,7 @@ export const AdminForm: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Botones de Gol Rápido estilizados por equipo */}
+          {/* Botones de Gol Rápido estilizados por equipo y Reiniciar */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -366,6 +369,17 @@ export const AdminForm: React.FC<Props> = ({
             >
               ⚽ Gol {currentMatch.awayTeam}
             </button>
+            {onResetMatch && (
+              <button
+                type="button"
+                onClick={onResetMatch}
+                className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-500/40 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                title="Reiniciar partido: restablecer marcador a 0:0 y eliminar todos los eventos"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+                Reiniciar Partido
+              </button>
+            )}
           </div>
         </div>
       )}
