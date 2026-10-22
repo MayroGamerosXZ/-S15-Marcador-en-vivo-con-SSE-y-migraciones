@@ -14,7 +14,7 @@ const createEventSchema = z.object({
   team: z.enum(['local', 'away'], {
     errorMap: () => ({ message: 'El equipo debe ser local o away' })
   }),
-  description: z.string().min(2, 'La descripción es requerida'),
+  description: z.string().optional().default(''),
   playerName: z.string().optional(),
   extraInfo: z.string().optional(),
   cardType: z.string().optional().default('none'),
@@ -105,8 +105,50 @@ matchesRouter.post('/:id/events', async (req: Request, res: Response) => {
       });
     }
 
+    // Generar descripción automática profesional si no fue provista
+    let eventDescription = parseResult.data.description?.trim();
+    if (!eventDescription) {
+      const teamName = parseResult.data.team === 'local' ? existingMatch.localTeam : existingMatch.awayTeam;
+      const player = parseResult.data.playerName?.trim();
+
+      switch (parseResult.data.eventType) {
+        case 'goal':
+          eventDescription = player
+            ? `¡Golazo de ${player}! Gran definición al fondo de la red para ${teamName}.`
+            : `¡Gol de ${teamName}! Gran remate directo a la portería.`;
+          break;
+        case 'foul':
+          eventDescription = player
+            ? `Falta cometida por ${player} (${teamName}) en disputa del balón.`
+            : `Falta táctica sancionada a ${teamName}.`;
+          break;
+        case 'yellow_card':
+          eventDescription = player
+            ? `Tarjeta amarilla para ${player} (${teamName}) por juego peligroso.`
+            : `Amonestación con tarjeta amarilla para ${teamName}.`;
+          break;
+        case 'red_card':
+          eventDescription = player
+            ? `¡Tarjeta roja para ${player} (${teamName})! Expulsión directa.`
+            : `Expulsión con tarjeta roja para jugador de ${teamName}.`;
+          break;
+        case 'substitution':
+          eventDescription = player
+            ? `Cambio táctico en ${teamName}: entra ${player}.`
+            : `Sustitución en las filas de ${teamName}.`;
+          break;
+        default:
+          eventDescription = `Incidencia de juego registrada para ${teamName}.`;
+      }
+    }
+
+    const eventPayload = {
+      ...parseResult.data,
+      description: eventDescription,
+    };
+
     // 1° Guardar el evento en la base de datos relacional (Requisito 2)
-    const { event: createdEvent, match: updatedMatch } = await dbService.createEvent(matchId, parseResult.data);
+    const { event: createdEvent, match: updatedMatch } = await dbService.createEvent(matchId, eventPayload);
 
     // 2° Transmitir por SSE ÚNICAMENTE DESPUÉS de haber guardado en la base de datos (Requisito 2)
     // Se transmite única y exclusivamente al canal del partido solicitado (Aislamiento - Requisito 3 y 5)

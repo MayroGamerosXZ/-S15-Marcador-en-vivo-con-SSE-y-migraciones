@@ -36,10 +36,6 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
       setErrorMessage('El minuto debe ser un número válido entre 1 y 130.');
       return false;
     }
-    if (!description.trim()) {
-      setErrorMessage('La descripción del evento es obligatoria.');
-      return false;
-    }
     return true;
   };
 
@@ -53,6 +49,42 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
     setIsSubmitting(true);
 
     try {
+      // Si el usuario no redactó descripción, generamos una automática con el jugador o equipo
+      const teamName = team === 'local' ? currentMatch?.localTeam : currentMatch?.awayTeam;
+      const cleanPlayer = playerName.trim();
+      let finalDescription = description.trim();
+
+      if (!finalDescription) {
+        switch (eventType) {
+          case 'goal':
+            finalDescription = cleanPlayer
+              ? `¡Golazo de ${cleanPlayer}! Gran remate directo a las redes para ${teamName}.`
+              : `¡Gol de ${teamName}! Gran remate directo a las redes.`;
+            break;
+          case 'yellow_card':
+            finalDescription = cleanPlayer
+              ? `Tarjeta amarilla para ${cleanPlayer} (${teamName}) por juego peligroso.`
+              : `Tarjeta amarilla para ${teamName}.`;
+            break;
+          case 'red_card':
+            finalDescription = cleanPlayer
+              ? `¡Tarjeta roja directa para ${cleanPlayer} (${teamName})! Expulsión del campo.`
+              : `Tarjeta roja y expulsión para jugador de ${teamName}.`;
+            break;
+          case 'substitution':
+            finalDescription = cleanPlayer
+              ? `Sustitución en ${teamName}: entra ${cleanPlayer}.`
+              : `Sustitución táctica en ${teamName}.`;
+            break;
+          case 'foul':
+          default:
+            finalDescription = cleanPlayer
+              ? `Falta cometida por ${cleanPlayer} (${teamName}) cortando la jugada.`
+              : `Falta de ${teamName} en disputa del balón.`;
+            break;
+        }
+      }
+
       // Petición HTTP POST al servidor (Requisito 2)
       const res = await fetch(`/api/matches/${selectedMatchId}/events`, {
         method: 'POST',
@@ -63,8 +95,8 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
           minute: Number(minute),
           eventType,
           team,
-          description: description.trim(),
-          playerName: playerName.trim() || undefined,
+          description: finalDescription,
+          playerName: cleanPlayer || undefined,
           extraInfo: extraInfo.trim() || undefined,
           cardType: eventType === 'yellow_card' ? 'yellow' : eventType === 'red_card' ? 'red' : 'none',
         }),
@@ -73,12 +105,19 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || 'Error al registrar el evento en el servidor');
+        let msg = data.error || 'Error al registrar el evento en el servidor';
+        if (data.details) {
+          const detailMsgs = Object.entries(data.details).map(([k, v]) => `${k}: ${(v as any[]).join(', ')}`).join(' | ');
+          msg += ` (${detailMsgs})`;
+        }
+        throw new Error(msg);
       }
 
-      setSuccessMessage(`¡Evento registrado con éxito en PostgreSQL y transmitido por SSE a los espectadores! (Incidencia #${data.event.id})`);
+      const playerMention = cleanPlayer ? ` de ${cleanPlayer}` : '';
+      setSuccessMessage(`¡Evento${playerMention} registrado con éxito en PostgreSQL y transmitido por SSE a los espectadores! (Incidencia #${data.event.id})`);
       
-      // Limpiar campos secundarios
+      // Limpiar campos del formulario
+      setPlayerName('');
       setDescription('');
       setExtraInfo('');
       if (onEventCreated) onEventCreated();
@@ -280,16 +319,44 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
 
           {/* Nombre del Jugador */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
-              <User className="w-4 h-4 text-amber-400" /> Nombre del Jugador
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <User className="w-4 h-4 text-amber-400" /> Jugador
+              </span>
+              <span className="text-[10px] text-amber-400/90 lowercase font-normal">(propio o sugerido)</span>
             </label>
             <input
               type="text"
-              placeholder="Ej: Vinicius Jr, Lewandowski..."
+              list="players-suggestions-list"
+              placeholder="Escribe cualquier nombre (ej: Mbappé, Juan Pérez...)"
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-3 text-sm font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
+            {/* Lista de sugerencias automáticas para autocompletar pero permitiendo cualquier nombre libre */}
+            <datalist id="players-suggestions-list">
+              <option value="Kylian Mbappé" />
+              <option value="Vinicius Jr" />
+              <option value="Jude Bellingham" />
+              <option value="Rodrygo Goes" />
+              <option value="Luka Modrić" />
+              <option value="Federico Valverde" />
+              <option value="Lamine Yamal" />
+              <option value="Robert Lewandowski" />
+              <option value="Raphinha" />
+              <option value="Pedri González" />
+              <option value="Dani Olmo" />
+              <option value="Erling Haaland" />
+              <option value="Kevin De Bruyne" />
+              <option value="Phil Foden" />
+              <option value="Mohamed Salah" />
+              <option value="Luis Díaz" />
+              <option value="Darwin Núñez" />
+              <option value="Harry Kane" />
+              <option value="Jamal Musiala" />
+              <option value="Serhou Guirassy" />
+              <option value="Karim Adeyemi" />
+            </datalist>
           </div>
         </div>
 
@@ -311,15 +378,19 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
 
         {/* Descripción */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
-            <FileText className="w-4 h-4 text-amber-400" /> Descripción Detallada del Evento *
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <FileText className="w-4 h-4 text-amber-400" /> Descripción de la Incidencia
+            </span>
+            <span className="text-[10px] text-slate-400 font-normal italic">
+              (Opcional: Si lo dejas vacío se genera automáticamente con el nombre de tu jugador)
+            </span>
           </label>
           <textarea
-            rows={3}
-            placeholder="Describe qué ocurrió en la jugada con detalle..."
+            rows={2}
+            placeholder="Escribe detalles opcionales o déjalo vacío para que el sistema redacte la jugada de tu jugador..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            required
             className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-3 text-sm font-normal focus:ring-2 focus:ring-amber-500 focus:outline-none resize-none leading-relaxed"
           />
         </div>
