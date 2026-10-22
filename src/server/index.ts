@@ -32,7 +32,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`====================================================`);
   console.log(`  ⚽ SERVIDOR DE MARCADOR EN VIVO CON SSE ACTIVO`);
   console.log(`  🚀 API escuchando en: http://localhost:${PORT}`);
