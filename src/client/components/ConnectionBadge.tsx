@@ -5,9 +5,10 @@ import { Radio, RefreshCw, AlertCircle } from 'lucide-react';
 interface Props {
   status: ConnectionStatus;
   matchId?: number;
+  onReconnect?: () => void;
 }
 
-export const ConnectionBadge: React.FC<Props> = ({ status, matchId }) => {
+export const ConnectionBadge: React.FC<Props> = ({ status, matchId, onReconnect }) => {
   if (!matchId) return null;
 
   const config = {
@@ -26,10 +27,10 @@ export const ConnectionBadge: React.FC<Props> = ({ status, matchId }) => {
       icon: RefreshCw
     },
     disconnected: {
-      color: 'bg-rose-500/10 text-rose-400 border-rose-500/40 shadow-rose-500/10',
+      color: 'bg-rose-500/15 text-rose-300 border-rose-500/50 shadow-rose-500/20',
       dot: 'bg-rose-400',
       solidDot: 'bg-rose-500',
-      text: 'Desconectado',
+      text: 'Desconectado (Inicia "npm run dev")',
       icon: AlertCircle
     }
   }[status];
@@ -37,13 +38,26 @@ export const ConnectionBadge: React.FC<Props> = ({ status, matchId }) => {
   const Icon = config.icon;
 
   return (
-    <div className={`inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md transition-all shadow-md ${config.color}`}>
-      <span className="relative flex h-2.5 w-2.5">
-        <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${config.dot}`}></span>
-        <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${config.solidDot}`}></span>
-      </span>
-      <Icon className={`w-3.5 h-3.5 ${status === 'reconnecting' ? 'animate-spin' : ''}`} />
-      <span>{config.text}</span>
+    <div className="flex items-center gap-2">
+      <div className={`inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border text-xs font-semibold backdrop-blur-md transition-all shadow-md ${config.color}`}>
+        <span className="relative flex h-2.5 w-2.5">
+          <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${config.dot}`}></span>
+          <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${config.solidDot}`}></span>
+        </span>
+        <Icon className={`w-3.5 h-3.5 ${status === 'reconnecting' ? 'animate-spin' : ''}`} />
+        <span>{config.text}</span>
+      </div>
+
+      {status === 'disconnected' && onReconnect && (
+        <button
+          type="button"
+          onClick={onReconnect}
+          className="text-xs bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 px-2.5 py-1.5 rounded-full border border-rose-500/30 flex items-center gap-1 font-bold transition-all"
+          title="Reintentar conexión con el servidor"
+        >
+          <RefreshCw className="w-3 h-3" /> Reintentar
+        </button>
+      )}
     </div>
   );
 };

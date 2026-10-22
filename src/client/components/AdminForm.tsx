@@ -7,7 +7,7 @@ interface Props {
   matches: Match[];
   selectedMatchId: number | null;
   onSelectMatch: (id: number) => void;
-  onEventCreated?: () => void;
+  onEventCreated?: (updatedMatch?: Match, newEvent?: any) => void;
 }
 
 export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectMatch, onEventCreated }) => {
@@ -20,11 +20,74 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
   const [playerName, setPlayerName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [extraInfo, setExtraInfo] = useState<string>('');
+  const [isDescriptionCustom, setIsDescriptionCustom] = useState<boolean>(false);
 
   // Estados de retroalimentación
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Función constructora de narrativa deportiva automática en tiempo real
+  const buildNarrative = (player: string, type: EventType, side: TeamSide) => {
+    const teamName = side === 'local' ? currentMatch?.localTeam : currentMatch?.awayTeam;
+    const cleanPlayer = player.trim();
+
+    switch (type) {
+      case 'goal':
+        return cleanPlayer
+          ? `¡Golazo de ${cleanPlayer}! Gran remate directo a las redes para ${teamName}.`
+          : `¡Gol de ${teamName}! Gran remate directo a las redes.`;
+      case 'yellow_card':
+        return cleanPlayer
+          ? `Tarjeta amarilla para ${cleanPlayer} (${teamName}) por juego peligroso.`
+          : `Tarjeta amarilla para ${teamName}.`;
+      case 'red_card':
+        return cleanPlayer
+          ? `¡Tarjeta roja para ${cleanPlayer} (${teamName})! Expulsión directa del campo.`
+          : `Tarjeta roja y expulsión para jugador de ${teamName}.`;
+      case 'substitution':
+        return cleanPlayer
+          ? `Sustitución en ${teamName}: entra al terreno ${cleanPlayer}.`
+          : `Sustitución táctica en ${teamName}.`;
+      case 'foul':
+      default:
+        return cleanPlayer
+          ? `Falta táctica cometida por ${cleanPlayer} (${teamName}) cortando la jugada.`
+          : `Falta táctica de ${teamName} en disputa del balón.`;
+    }
+  };
+
+  // Sincronización instantánea al tipear el nombre del jugador
+  const handlePlayerNameChange = (newName: string) => {
+    setPlayerName(newName);
+    // Si el usuario no ha escrito un texto personalizado largo, actualizar la descripción al vuelo
+    if (!isDescriptionCustom || !description.trim()) {
+      setDescription(buildNarrative(newName, eventType, team));
+    }
+  };
+
+  // Detección automática al hacer click en el recuadro de la descripción
+  const handleDescriptionFocus = () => {
+    if (!description.trim() || !isDescriptionCustom) {
+      setDescription(buildNarrative(playerName, eventType, team));
+    }
+  };
+
+  // Cambio de tipo de evento con actualización viva
+  const handleEventTypeChange = (newType: EventType) => {
+    setEventType(newType);
+    if (!isDescriptionCustom || !description.trim()) {
+      setDescription(buildNarrative(playerName, newType, team));
+    }
+  };
+
+  // Cambio de equipo con actualización viva
+  const handleTeamChange = (newTeam: TeamSide) => {
+    setTeam(newTeam);
+    if (!isDescriptionCustom || !description.trim()) {
+      setDescription(buildNarrative(playerName, eventType, newTeam));
+    }
+  };
 
   // Validación de formulario (Requisito 2)
   const validateForm = () => {
@@ -49,40 +112,12 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
     setIsSubmitting(true);
 
     try {
-      // Si el usuario no redactó descripción, generamos una automática con el jugador o equipo
-      const teamName = team === 'local' ? currentMatch?.localTeam : currentMatch?.awayTeam;
       const cleanPlayer = playerName.trim();
       let finalDescription = description.trim();
 
+      // Si por alguna razón la descripción está vacía, construirla
       if (!finalDescription) {
-        switch (eventType) {
-          case 'goal':
-            finalDescription = cleanPlayer
-              ? `¡Golazo de ${cleanPlayer}! Gran remate directo a las redes para ${teamName}.`
-              : `¡Gol de ${teamName}! Gran remate directo a las redes.`;
-            break;
-          case 'yellow_card':
-            finalDescription = cleanPlayer
-              ? `Tarjeta amarilla para ${cleanPlayer} (${teamName}) por juego peligroso.`
-              : `Tarjeta amarilla para ${teamName}.`;
-            break;
-          case 'red_card':
-            finalDescription = cleanPlayer
-              ? `¡Tarjeta roja directa para ${cleanPlayer} (${teamName})! Expulsión del campo.`
-              : `Tarjeta roja y expulsión para jugador de ${teamName}.`;
-            break;
-          case 'substitution':
-            finalDescription = cleanPlayer
-              ? `Sustitución en ${teamName}: entra ${cleanPlayer}.`
-              : `Sustitución táctica en ${teamName}.`;
-            break;
-          case 'foul':
-          default:
-            finalDescription = cleanPlayer
-              ? `Falta cometida por ${cleanPlayer} (${teamName}) cortando la jugada.`
-              : `Falta de ${teamName} en disputa del balón.`;
-            break;
-        }
+        finalDescription = buildNarrative(cleanPlayer, eventType, team);
       }
 
       // Petición HTTP POST al servidor (Requisito 2)
@@ -116,14 +151,19 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
       const playerMention = cleanPlayer ? ` de ${cleanPlayer}` : '';
       setSuccessMessage(`¡Evento${playerMention} registrado con éxito en PostgreSQL y transmitido por SSE a los espectadores! (Incidencia #${data.event.id})`);
       
-      // Limpiar campos del formulario
+      // Notificar con el partido actualizado y el evento para cambio inmediato del marcador
+      if (onEventCreated) {
+        onEventCreated(data.match, data.event);
+      }
+
+      // Limpiar campos del formulario para el siguiente evento
       setPlayerName('');
       setDescription('');
       setExtraInfo('');
-      if (onEventCreated) onEventCreated();
+      setIsDescriptionCustom(false);
     } catch (err: any) {
       console.error('[AdminForm Error]:', err);
-      setErrorMessage(err.message || 'Error inesperado al enviar el formulario');
+      setErrorMessage(err.message || 'Error inesperado al enviar el formulario. Verifica que el servidor esté activo con "npm run dev".');
     } finally {
       setIsSubmitting(false);
     }
@@ -271,7 +311,7 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
             </label>
             <select
               value={eventType}
-              onChange={(e) => setEventType(e.target.value as EventType)}
+              onChange={(e) => handleEventTypeChange(e.target.value as EventType)}
               className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none"
             >
               <option value="goal">⚽ Gol</option>
@@ -289,7 +329,7 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
             </label>
             <select
               value={team}
-              onChange={(e) => setTeam(e.target.value as TeamSide)}
+              onChange={(e) => handleTeamChange(e.target.value as TeamSide)}
               className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-3 text-sm font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none"
             >
               <option value="local">
@@ -323,14 +363,14 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
               <span className="flex items-center gap-1.5">
                 <User className="w-4 h-4 text-amber-400" /> Jugador
               </span>
-              <span className="text-[10px] text-amber-400/90 lowercase font-normal">(propio o sugerido)</span>
+              <span className="text-[10px] text-emerald-400 font-semibold animate-pulse">● Sincronizado</span>
             </label>
             <input
               type="text"
               list="players-suggestions-list"
-              placeholder="Escribe cualquier nombre (ej: Mbappé, Juan Pérez...)"
+              placeholder="Escribe jugador (ej: Mbappé, Juan Pérez...)"
               value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
+              onChange={(e) => handlePlayerNameChange(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-3 text-sm font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
             {/* Lista de sugerencias automáticas para autocompletar pero permitiendo cualquier nombre libre */}
@@ -376,21 +416,36 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
           </div>
         )}
 
-        {/* Descripción */}
+        {/* Descripción con Auto-Detección y Sincronización */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-amber-400" /> Descripción de la Incidencia
-            </span>
-            <span className="text-[10px] text-slate-400 font-normal italic">
-              (Opcional: Si lo dejas vacío se genera automáticamente con el nombre de tu jugador)
-            </span>
-          </label>
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDescriptionCustom(false);
+                  setDescription(buildNarrative(playerName, eventType, team));
+                }}
+                className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-all bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20"
+                title="Generar y sincronizar narración con el jugador ingresado"
+              >
+                <Sparkles className="w-3 h-3 text-amber-400" /> Auto-Sincronizar
+              </button>
+            </div>
+          </div>
           <textarea
             rows={2}
-            placeholder="Escribe detalles opcionales o déjalo vacío para que el sistema redacte la jugada de tu jugador..."
+            placeholder="Al escribir un jugador o hacer clic aquí, la descripción se completa y sincroniza automáticamente..."
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onFocus={handleDescriptionFocus}
+            onClick={handleDescriptionFocus}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setIsDescriptionCustom(e.target.value.trim().length > 0);
+            }}
             className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-3 text-sm font-normal focus:ring-2 focus:ring-amber-500 focus:outline-none resize-none leading-relaxed"
           />
         </div>

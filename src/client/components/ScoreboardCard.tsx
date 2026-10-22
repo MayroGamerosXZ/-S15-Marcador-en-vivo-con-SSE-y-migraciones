@@ -8,9 +8,10 @@ interface Props {
   match: Match | null;
   connectionStatus: ConnectionStatus;
   eventsCount: number;
+  onReconnect?: () => void;
 }
 
-export const ScoreboardCard: React.FC<Props> = ({ match, connectionStatus, eventsCount }) => {
+export const ScoreboardCard: React.FC<Props> = ({ match, connectionStatus, eventsCount, onReconnect }) => {
   if (!match) {
     return (
       <div className="p-12 text-center stadium-border rounded-3xl">
@@ -71,7 +72,7 @@ export const ScoreboardCard: React.FC<Props> = ({ match, connectionStatus, event
         </div>
 
         {/* Badge Oficial SSE */}
-        <ConnectionBadge status={connectionStatus} matchId={match.id} />
+        <ConnectionBadge status={connectionStatus} matchId={match.id} onReconnect={onReconnect} />
       </div>
 
       {/* Escenario Central: Escudo Local, Marcador LED y Escudo Visitante */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Match, MatchEvent, ConnectionStatus } from '../types';
 
 export function useMatchEvents(matchId: number | null) {
@@ -12,6 +12,77 @@ export function useMatchEvents(matchId: number | null) {
   const eventSourceRef = useRef<EventSource | null>(null);
   // Set para deduplicar eventos y evitar que aparezcan duplicados tras reconexión (Requisito 5)
   const eventIdsRef = useRef<Set<number>>(new Set());
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Función para inicializar Server-Sent Events
+  const initSSE = useCallback((id: number) => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+
+    setConnectionStatus('reconnecting');
+    const es = new EventSource(`/api/matches/${id}/events/stream`);
+    eventSourceRef.current = es;
+
+    // Evento de conexión abierta
+    es.addEventListener('open', () => {
+      console.log(`[SSE Frontend] Conexión establecida con partido ${id}`);
+      setConnectionStatus('connected');
+    });
+
+    // Confirmación inicial enviada por el servidor
+    es.addEventListener('connected', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data);
+        console.log('[SSE Frontend] Mensaje de bienvenida:', data);
+        setConnectionStatus('connected');
+      } catch {}
+    });
+
+    // Nuevo evento de partido en tiempo real
+    es.addEventListener('match_event', (e: MessageEvent) => {
+      try {
+        const newEvent: MatchEvent = JSON.parse(e.data);
+        console.log('[SSE Frontend] Evento recibido vía SSE:', newEvent);
+
+        // Deduplicación estricta por ID
+        if (!eventIdsRef.current.has(newEvent.id)) {
+          eventIdsRef.current.add(newEvent.id);
+          setEvents(prev => [...prev, newEvent]);
+        }
+      } catch (err) {
+        console.error('[SSE Error al procesar evento]:', err);
+      }
+    });
+
+    // Actualización de marcador en tiempo real
+    es.addEventListener('score_update', (e: MessageEvent) => {
+      try {
+        const updatedMatch: Match = JSON.parse(e.data);
+        console.log('[SSE Frontend] Marcador actualizado vía SSE:', updatedMatch);
+        setMatch(updatedMatch);
+      } catch (err) {
+        console.error('[SSE Error al actualizar marcador]:', err);
+      }
+    });
+
+    // Manejo de errores y reconexión automática resiliente
+    es.onerror = () => {
+      console.warn(`[SSE Frontend] Conexión interrumpida para partido ${id}`);
+      if (es.readyState === EventSource.CLOSED) {
+        setConnectionStatus('disconnected');
+        // Reintentar conexión automáticamente tras 3 segundos si el servidor se reinició
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log(`[SSE Frontend] Reintentando reconexión para partido ${id}...`);
+          initSSE(id);
+        }, 3000);
+      } else {
+        setConnectionStatus('reconnecting');
+      }
+    };
+  }, []);
 
   // Carga inicial y suscripción SSE cuando cambia matchId
   useEffect(() => {
@@ -46,80 +117,29 @@ export function useMatchEvents(matchId: number | null) {
         setEvents(eventsData);
         setLoading(false);
 
-        // 2. Abrir conexión SSE ÚNICAMENTE tras completar la carga inicial
+        // 2. Abrir conexión SSE tras completar la carga inicial
         initSSE(matchId);
       } catch (err: any) {
         console.error('[HTTP Error]', err);
         setError(err.message || 'Error cargando datos');
         setLoading(false);
+        setConnectionStatus('disconnected');
+
+        // Reintentar si el servidor aún está arrancando
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          fetchInitialData();
+        }, 3000);
       }
     };
 
     fetchInitialData();
 
-    // Función para inicializar Server-Sent Events
-    const initSSE = (id: number) => {
-      // Si existía una conexión previa, cerrarla de inmediato (Requisito 3)
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-
-      setConnectionStatus('reconnecting');
-      const es = new EventSource(`/api/matches/${id}/events/stream`);
-      eventSourceRef.current = es;
-
-      // Evento de conexión abierta
-      es.addEventListener('open', () => {
-        console.log(`[SSE Frontend] Conexión establecida con partido ${id}`);
-        setConnectionStatus('connected');
-      });
-
-      // Confirmación inicial enviada por el servidor
-      es.addEventListener('connected', (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data);
-          console.log('[SSE Frontend] Mensaje de bienvenida:', data);
-          setConnectionStatus('connected');
-        } catch {}
-      });
-
-      // Nuevo evento de partido en tiempo real
-      es.addEventListener('match_event', (e: MessageEvent) => {
-        try {
-          const newEvent: MatchEvent = JSON.parse(e.data);
-          console.log('[SSE Frontend] Evento recibido:', newEvent);
-
-          // Deduplicación estricta por ID
-          if (!eventIdsRef.current.has(newEvent.id)) {
-            eventIdsRef.current.add(newEvent.id);
-            setEvents(prev => [...prev, newEvent]);
-          }
-        } catch (err) {
-          console.error('[SSE Error al procesar evento]:', err);
-        }
-      });
-
-      // Actualización de marcador en tiempo real
-      es.addEventListener('score_update', (e: MessageEvent) => {
-        try {
-          const updatedMatch: Match = JSON.parse(e.data);
-          console.log('[SSE Frontend] Marcador actualizado:', updatedMatch);
-          setMatch(updatedMatch);
-        } catch (err) {
-          console.error('[SSE Error al actualizar marcador]:', err);
-        }
-      });
-
-      // Manejo de errores y reconexión automática del navegador
-      es.onerror = () => {
-        console.warn(`[SSE Frontend] Conexión interrumpida o reconectando para partido ${id}`);
-        // EventSource intentará reconectar automáticamente, por lo que mostramos 'reconnecting'
-        setConnectionStatus('reconnecting');
-      };
-    };
-
     // Función de limpieza al desmontar o cambiar de partido (Requisito 3)
     return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
       if (eventSourceRef.current) {
         console.log(`[SSE Frontend] Cerrando conexión SSE para partido ${matchId}`);
         eventSourceRef.current.close();
@@ -127,7 +147,14 @@ export function useMatchEvents(matchId: number | null) {
       }
       setConnectionStatus('disconnected');
     };
-  }, [matchId]);
+  }, [matchId, initSSE]);
 
-  return { match, events, connectionStatus, loading, error, setMatch, setEvents };
+  // Método manual para reconectar si el usuario lo desea
+  const reconnect = useCallback(() => {
+    if (matchId) {
+      initSSE(matchId);
+    }
+  }, [matchId, initSSE]);
+
+  return { match, events, connectionStatus, loading, error, setMatch, setEvents, reconnect };
 }

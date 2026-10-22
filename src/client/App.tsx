@@ -16,7 +16,16 @@ export const App: React.FC = () => {
   const [matchesError, setMatchesError] = useState<string | null>(null);
 
   // Hook para gestión de eventos SSE en tiempo real para el partido seleccionado
-  const { match: currentMatch, events, connectionStatus, loading: matchLoading, error: matchError } = useMatchEvents(selectedMatchId);
+  const {
+    match: currentMatch,
+    events,
+    connectionStatus,
+    loading: matchLoading,
+    error: matchError,
+    setMatch,
+    setEvents,
+    reconnect
+  } = useMatchEvents(selectedMatchId);
 
   // Carga inicial de partidos
   const fetchMatches = async () => {
@@ -93,6 +102,7 @@ export const App: React.FC = () => {
               match={currentMatch}
               connectionStatus={connectionStatus}
               eventsCount={events.length}
+              onReconnect={reconnect}
             />
 
             {/* Línea de Tiempo con Iconos y Colores Diferenciados */}
@@ -114,8 +124,18 @@ export const App: React.FC = () => {
               matches={matches}
               selectedMatchId={selectedMatchId}
               onSelectMatch={(id) => setSelectedMatchId(id)}
-              onEventCreated={() => {
-                // Al registrar un evento, refrescamos la lista de partidos para sincronizar marcadores
+              onEventCreated={(updatedMatch, newEvent) => {
+                // Sincronización instantánea directa de marcador y timeline
+                if (updatedMatch) {
+                  setMatch(updatedMatch);
+                  setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+                }
+                if (newEvent) {
+                  setEvents(prev => {
+                    if (prev.some(e => e.id === newEvent.id)) return prev;
+                    return [...prev, newEvent];
+                  });
+                }
                 fetchMatches();
               }}
             />
@@ -130,6 +150,7 @@ export const App: React.FC = () => {
                 match={currentMatch}
                 connectionStatus={connectionStatus}
                 eventsCount={events.length}
+                onReconnect={reconnect}
               />
             </div>
 
