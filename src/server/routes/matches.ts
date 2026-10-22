@@ -1,7 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db/index.js';
-import { matches, matchEvents } from '../db/schema.js';
-import { eq, asc } from 'drizzle-orm';
+import { dbService } from '../db/dbService.js';
 import { z } from 'zod';
 import { sseManager } from '../sse/sseManager.js';
 
@@ -25,11 +23,11 @@ const createEventSchema = z.object({
 /**
  * 1. GET /api/matches
  * Nombre: Obtener todos los partidos
- * Función: Retorna la lista de todos los partidos registrados en la base de datos
+ * Función: Retorna la lista de todos los partidos registrados (Requisito 1)
  */
 matchesRouter.get('/', async (_req: Request, res: Response) => {
   try {
-    const allMatches = await db.select().from(matches).orderBy(asc(matches.id));
+    const allMatches = await dbService.getMatches();
     res.json(allMatches);
   } catch (error: any) {
     console.error('Error fetching matches:', error);
@@ -49,7 +47,7 @@ matchesRouter.get('/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'ID de partido inválido' });
     }
 
-    const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+    const match = await dbService.getMatchById(matchId);
     if (!match) {
       return res.status(404).json({ error: 'Partido no encontrado' });
     }
@@ -73,13 +71,7 @@ matchesRouter.get('/:id/events', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'ID de partido inválido' });
     }
 
-    // Ordenar por minuto ascendente y luego por timestamp de creación (Requisito 1)
-    const events = await db
-      .select()
-      .from(matchEvents)
-      .where(eq(matchEvents.matchId, matchId))
-      .orderBy(asc(matchEvents.minute), asc(matchEvents.createdAt));
-
+    const events = await dbService.getMatchEvents(matchId);
     res.json(events);
   } catch (error: any) {
     console.error('Error fetching events:', error);
@@ -99,8 +91,7 @@ matchesRouter.post('/:id/events', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'ID de partido inválido' });
     }
 
-    // Verificar que el partido exista
-    const [existingMatch] = await db.select().from(matches).where(eq(matches.id, matchId));
+    const existingMatch = await dbService.getMatchById(matchId);
     if (!existingMatch) {
       return res.status(404).json({ error: 'El partido especificado no existe' });
     }
@@ -114,46 +105,14 @@ matchesRouter.post('/:id/events', async (req: Request, res: Response) => {
       });
     }
 
-    const { minute, eventType, team, description, playerName, extraInfo, cardType } = parseResult.data;
-
     // 1° Guardar el evento en la base de datos relacional (Requisito 2)
-    const [createdEvent] = await db.insert(matchEvents).values({
-      matchId,
-      minute,
-      eventType,
-      team,
-      description,
-      playerName: playerName || null,
-      extraInfo: extraInfo || null,
-      cardType: cardType || 'none',
-      createdAt: new Date(),
-    }).returning();
-
-    let updatedMatch = existingMatch;
-
-    // Si el evento es un GOL, actualizar el marcador en la base de datos
-    if (eventType === 'goal') {
-      const isLocal = team === 'local';
-      const newLocalScore = isLocal ? existingMatch.localScore + 1 : existingMatch.localScore;
-      const newAwayScore = !isLocal ? existingMatch.awayScore + 1 : existingMatch.awayScore;
-
-      const [updated] = await db.update(matches)
-        .set({
-          localScore: newLocalScore,
-          awayScore: newAwayScore,
-          updatedAt: new Date()
-        })
-        .where(eq(matches.id, matchId))
-        .returning();
-
-      updatedMatch = updated;
-    }
+    const { event: createdEvent, match: updatedMatch } = await dbService.createEvent(matchId, parseResult.data);
 
     // 2° Transmitir por SSE ÚNICAMENTE DESPUÉS de haber guardado en la base de datos (Requisito 2)
     // Se transmite única y exclusivamente al canal del partido solicitado (Aislamiento - Requisito 3 y 5)
     sseManager.broadcastToMatch(matchId, 'match_event', createdEvent);
 
-    if (eventType === 'goal') {
+    if (parseResult.data.eventType === 'goal') {
       sseManager.broadcastToMatch(matchId, 'score_update', updatedMatch);
     }
 

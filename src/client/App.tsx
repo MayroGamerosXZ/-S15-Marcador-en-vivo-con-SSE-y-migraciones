@@ -65,9 +65,17 @@ export const App: React.FC = () => {
             <span>Cargando partidos de la jornada...</span>
           </div>
         ) : matchesError ? (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 shrink-0" />
-            <span>{matchesError}</span>
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-sm flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              <span>{matchesError}</span>
+            </div>
+            <button
+              onClick={fetchMatches}
+              className="px-4 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 font-bold text-xs flex items-center gap-1.5 transition-all"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Reintentar Conexión
+            </button>
           </div>
         ) : (
           <MatchSelector
