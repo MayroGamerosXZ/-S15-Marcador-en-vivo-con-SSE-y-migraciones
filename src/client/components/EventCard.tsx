@@ -39,15 +39,21 @@ export const EventCard: React.FC<Props> = ({ event, localTeamName, awayTeamName 
           tagColor: 'bg-yellow-500 text-slate-950 font-black'
         };
       case 'red_card':
+        const isDoubleYellow = event.extraInfo?.toLowerCase().includes('segunda') || event.extraInfo?.toLowerCase().includes('doble');
         return {
           badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
           cardBorder: 'border-rose-500/70 bg-gradient-to-r from-rose-950/50 via-slate-900/80 to-slate-950/90 shadow-xl shadow-rose-500/20',
-          icon: (
+          icon: isDoubleYellow ? (
+            <div className="flex items-center -space-x-2">
+              <div className="w-4 h-6 bg-yellow-400 rounded-sm shadow-md border border-yellow-200"></div>
+              <div className="w-4 h-6 bg-rose-600 rounded-sm shadow-lg border border-rose-300 animate-pulse"></div>
+            </div>
+          ) : (
             <div className="w-5 h-7 bg-rose-600 rounded-sm shadow-lg shadow-rose-600/60 border border-rose-300 animate-pulse"></div>
           ),
-          title: '¡Tarjeta Roja Directa (Expulsión)!',
+          title: isDoubleYellow ? '¡Doble Tarjeta Amarilla (Expulsión)!' : '¡Tarjeta Roja Directa (Expulsión)!',
           colorAccent: 'text-rose-400 font-black tracking-wide',
-          tagText: 'Expulsión',
+          tagText: isDoubleYellow ? 'Doble Amarilla' : 'Expulsión',
           tagColor: 'bg-rose-600 text-white font-black'
         };
       case 'foul':

@@ -1,17 +1,25 @@
 import React from 'react';
 import { Match, ConnectionStatus } from '../types';
+import { MatchClockState } from '../hooks/useMatchClock';
 import { ConnectionBadge } from './ConnectionBadge';
 import { TeamLogo } from './TeamLogo';
-import { Flame, Clock, Radio, Trophy, Activity } from 'lucide-react';
+import { Flame, Clock, Radio, Trophy, Activity, Play, Pause, RotateCcw, Timer } from 'lucide-react';
 
 interface Props {
   match: Match | null;
   connectionStatus: ConnectionStatus;
   eventsCount: number;
   onReconnect?: () => void;
+  matchClock?: MatchClockState;
 }
 
-export const ScoreboardCard: React.FC<Props> = ({ match, connectionStatus, eventsCount, onReconnect }) => {
+export const ScoreboardCard: React.FC<Props> = ({
+  match,
+  connectionStatus,
+  eventsCount,
+  onReconnect,
+  matchClock
+}) => {
   if (!match) {
     return (
       <div className="p-12 text-center stadium-border rounded-3xl">
@@ -46,7 +54,7 @@ export const ScoreboardCard: React.FC<Props> = ({ match, connectionStatus, event
 
       {/* Barra superior de transmisión */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-800">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Badge de Estado del Partido */}
           <span className={`px-3.5 py-1.5 rounded-full text-xs font-black tracking-widest uppercase flex items-center gap-2 shadow-lg ${
             isLive
@@ -59,15 +67,43 @@ export const ScoreboardCard: React.FC<Props> = ({ match, connectionStatus, event
             {isLive ? 'EN VIVO' : match.status === 'finished' ? 'FINALIZADO' : 'PROGRAMADO'}
           </span>
 
+          {/* Reloj Dinámico de Partido Acelerado (90 min en ~2.5 min) */}
+          {matchClock && (
+            <div className="flex items-center gap-2 bg-slate-950/90 border border-slate-700/80 px-3.5 py-1.5 rounded-full shadow-inner">
+              <Timer className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-digital text-amber-400 font-black text-sm tracking-widest tabular-nums">
+                {matchClock.formattedTime}
+              </span>
+              <span className="text-[10px] text-emerald-400 font-black bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                {matchClock.currentMinute}'
+              </span>
+              <div className="flex items-center gap-1 pl-1 border-l border-slate-800">
+                <button
+                  type="button"
+                  onClick={matchClock.togglePlayPause}
+                  className="text-slate-400 hover:text-white p-0.5 rounded transition-all"
+                  title={matchClock.isRunning ? 'Pausar Reloj' : 'Reanudar Reloj'}
+                >
+                  {matchClock.isRunning ? <Pause className="w-3 h-3 text-amber-400" /> : <Play className="w-3 h-3 text-emerald-400" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={matchClock.resetClock}
+                  className="text-slate-400 hover:text-white p-0.5 rounded transition-all"
+                  title="Reiniciar a Minuto 1'"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Período */}
           <span className="text-xs font-bold text-slate-200 bg-slate-900/90 px-3.5 py-1.5 rounded-full border border-slate-700 flex items-center gap-1.5 shadow-inner">
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
-            {match.period === 'first_half' && '1er Tiempo (1T)'}
-            {match.period === 'second_half' && '2do Tiempo (2T)'}
-            {match.period === 'halftime' && 'Entretiempo'}
-            {match.period === 'extra_time' && 'Tiempo Suplementario'}
-            {match.period === 'finished' && 'Tiempo Cumplido'}
-            {!match.period && 'En Juego'}
+            {matchClock
+              ? (matchClock.period === 'first_half' ? '1er Tiempo (1T)' : matchClock.period === 'halftime' ? 'Entretiempo (HT)' : matchClock.period === 'second_half' ? '2do Tiempo (2T)' : 'Finalizado')
+              : (match.period === 'first_half' ? '1er Tiempo (1T)' : match.period === 'second_half' ? '2do Tiempo (2T)' : match.period === 'halftime' ? 'Entretiempo' : 'En Juego')}
           </span>
         </div>
 

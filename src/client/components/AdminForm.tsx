@@ -1,31 +1,103 @@
-import React, { useState } from 'react';
-import { Match, EventType, TeamSide } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Match, EventType, TeamSide, MatchEvent } from '../types';
 import { TeamLogo } from './TeamLogo';
-import { PlusCircle, Send, CheckCircle2, AlertCircle, Shield, Sparkles, User, FileText, Clock, Radio, Flame } from 'lucide-react';
+import { getSquadForTeam, Player } from '../data/squads';
+import { MatchClockState } from '../hooks/useMatchClock';
+import {
+  Send,
+  CheckCircle2,
+  AlertCircle,
+  Shield,
+  Sparkles,
+  User,
+  FileText,
+  Clock,
+  Radio,
+  Flame,
+  Users,
+  AlertTriangle,
+  Timer
+} from 'lucide-react';
 
 interface Props {
   matches: Match[];
   selectedMatchId: number | null;
   onSelectMatch: (id: number) => void;
   onEventCreated?: (updatedMatch?: Match, newEvent?: any) => void;
+  events?: MatchEvent[];
+  matchClock?: MatchClockState;
 }
 
-export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectMatch, onEventCreated }) => {
+export const AdminForm: React.FC<Props> = ({
+  matches,
+  selectedMatchId,
+  onSelectMatch,
+  onEventCreated,
+  events = [],
+  matchClock
+}) => {
   const currentMatch = matches.find(m => m.id === selectedMatchId);
 
   // Estados del formulario
   const [eventType, setEventType] = useState<EventType>('goal');
   const [team, setTeam] = useState<TeamSide>('local');
-  const [minute, setMinute] = useState<number>(68);
+  const [minute, setMinute] = useState<number>(matchClock?.currentMinute || 68);
+  const [syncWithLiveClock, setSyncWithLiveClock] = useState<boolean>(true);
   const [playerName, setPlayerName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [extraInfo, setExtraInfo] = useState<string>('');
   const [isDescriptionCustom, setIsDescriptionCustom] = useState<boolean>(false);
+  const [squadFilter, setSquadFilter] = useState<'ALL' | 'DEL' | 'MED' | 'DEF' | 'POR'>('ALL');
 
   // Estados de retroalimentación
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Reloj entrelazado: avanza el minuto del formulario conforme el reloj en vivo avanza
+  useEffect(() => {
+    if (syncWithLiveClock && matchClock) {
+      setMinute(matchClock.currentMinute);
+    }
+  }, [matchClock?.currentMinute, syncWithLiveClock]);
+
+  // Mapa de tarjetas acumuladas en el partido actual para detectar Doble Amarilla
+  const playerCardMap = useMemo(() => {
+    const map: Record<string, { yellow: number; isExpelled: boolean }> = {};
+    events.forEach((evt) => {
+      if (!evt.playerName) return;
+      const norm = evt.playerName.trim().toLowerCase();
+      if (!map[norm]) map[norm] = { yellow: 0, isExpelled: false };
+
+      if (evt.eventType === 'yellow_card' || evt.cardType === 'yellow') {
+        map[norm].yellow += 1;
+        if (map[norm].yellow >= 2) map[norm].isExpelled = true;
+      }
+      if (evt.eventType === 'red_card' || evt.cardType === 'red') {
+        map[norm].isExpelled = true;
+      }
+    });
+    return map;
+  }, [events]);
+
+  // Verificar estado disciplinario del jugador escrito/seleccionado
+  const currentPlayerStatus = useMemo(() => {
+    if (!playerName.trim()) return null;
+    const norm = playerName.trim().toLowerCase();
+    return playerCardMap[norm] || null;
+  }, [playerName, playerCardMap]);
+
+  // Si tiene 1 tarjeta amarilla previa y se selecciona tarjeta amarilla, se activa la regla DOBLE AMARILLA = ROJA
+  const isDoubleYellow = eventType === 'yellow_card' && currentPlayerStatus && currentPlayerStatus.yellow >= 1;
+
+  // Plantilla oficial del equipo seleccionado (Real Madrid, FC Barcelona, City, Liverpool, etc.)
+  const squadList = useMemo(() => {
+    if (!currentMatch) return [];
+    const teamName = team === 'local' ? currentMatch.localTeam : currentMatch.awayTeam;
+    const players = getSquadForTeam(teamName);
+    if (squadFilter === 'ALL') return players;
+    return players.filter(p => p.position === squadFilter);
+  }, [currentMatch, team, squadFilter]);
 
   // Función constructora de narrativa deportiva automática en tiempo real
   const buildNarrative = (player: string, type: EventType, side: TeamSide) => {
@@ -38,6 +110,9 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
           ? `¡Golazo de ${cleanPlayer}! Gran remate directo a las redes para ${teamName}.`
           : `¡Gol de ${teamName}! Gran remate directo a las redes.`;
       case 'yellow_card':
+        if (isDoubleYellow) {
+          return `¡Segunda tarjeta amarilla para ${cleanPlayer} (${teamName}) y EXPULSIÓN! El jugador recibe la tarjeta roja por reiteración de faltas.`;
+        }
         return cleanPlayer
           ? `Tarjeta amarilla para ${cleanPlayer} (${teamName}) por juego peligroso.`
           : `Tarjeta amarilla para ${teamName}.`;
@@ -60,7 +135,6 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
   // Sincronización instantánea al tipear el nombre del jugador
   const handlePlayerNameChange = (newName: string) => {
     setPlayerName(newName);
-    // Si el usuario no ha escrito un texto personalizado largo, actualizar la descripción al vuelo
     if (!isDescriptionCustom || !description.trim()) {
       setDescription(buildNarrative(newName, eventType, team));
     }
@@ -89,6 +163,13 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
     }
   };
 
+  // Selección rápida de jugador desde la plantilla oficial
+  const handleSelectSquadPlayer = (player: Player) => {
+    setPlayerName(player.name);
+    setIsDescriptionCustom(false);
+    setDescription(buildNarrative(player.name, eventType, team));
+  };
+
   // Validación de formulario (Requisito 2)
   const validateForm = () => {
     if (!selectedMatchId) {
@@ -115,9 +196,20 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
       const cleanPlayer = playerName.trim();
       let finalDescription = description.trim();
 
-      // Si por alguna razón la descripción está vacía, construirla
       if (!finalDescription) {
         finalDescription = buildNarrative(cleanPlayer, eventType, team);
+      }
+
+      let finalEventType = eventType;
+      let finalCardType = eventType === 'yellow_card' ? 'yellow' : eventType === 'red_card' ? 'red' : 'none';
+      let finalExtraInfo = extraInfo.trim() || undefined;
+
+      // REGLAMENTO: Si el jugador ya tenía amarilla y se le saca otra, se transforma en ROJA (Doble Amarilla)
+      if (isDoubleYellow) {
+        finalEventType = 'red_card';
+        finalCardType = 'red';
+        finalExtraInfo = 'Segunda tarjeta amarilla (Doble amonestación)';
+        finalDescription = `¡Segunda tarjeta amarilla para ${cleanPlayer} y EXPULSIÓN! El jugador recibe la tarjeta roja por reiteración de faltas.`;
       }
 
       // Petición HTTP POST al servidor (Requisito 2)
@@ -128,12 +220,12 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
         },
         body: JSON.stringify({
           minute: Number(minute),
-          eventType,
+          eventType: finalEventType,
           team,
           description: finalDescription,
           playerName: cleanPlayer || undefined,
-          extraInfo: extraInfo.trim() || undefined,
-          cardType: eventType === 'yellow_card' ? 'yellow' : eventType === 'red_card' ? 'red' : 'none',
+          extraInfo: finalExtraInfo,
+          cardType: finalCardType,
         }),
       });
 
@@ -149,7 +241,8 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
       }
 
       const playerMention = cleanPlayer ? ` de ${cleanPlayer}` : '';
-      setSuccessMessage(`¡Evento${playerMention} registrado con éxito en PostgreSQL y transmitido por SSE a los espectadores! (Incidencia #${data.event.id})`);
+      const doubleMention = isDoubleYellow ? ' [DOBLE AMARILLA -> ROJA]' : '';
+      setSuccessMessage(`¡Evento${playerMention}${doubleMention} registrado en PostgreSQL y transmitido por SSE! (Incidencia #${data.event.id})`);
       
       // Notificar con el partido actualizado y el evento para cambio inmediato del marcador
       if (onEventCreated) {
@@ -175,25 +268,28 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
     const teamName = side === 'local' ? currentMatch.localTeam : currentMatch.awayTeam;
     setEventType('goal');
     setTeam(side);
-    setMinute(Math.floor(Math.random() * 30) + 60);
 
     const norm = teamName.toLowerCase();
+    let player = 'Goleador';
+    let text = `¡Golazo de ${teamName}!`;
+
     if (norm.includes('madrid')) {
-      setPlayerName('Vinicius Jr');
-      setDescription('¡Golazo de Vinicius Jr gambeteando dentro del área y clavando el balón al ángulo!');
+      player = 'Vinicius Jr';
+      text = '¡Golazo de Vinicius Jr gambeteando dentro del área y clavando el balón al ángulo!';
     } else if (norm.includes('barcelona') || norm.includes('barça')) {
-      setPlayerName('Lamine Yamal');
-      setDescription('¡Extraordinario remate con rosca de Lamine Yamal al segundo poste imposible para el arquero!');
+      player = 'Lamine Yamal';
+      text = '¡Extraordinario remate con rosca de Lamine Yamal al segundo poste imposible para el arquero!';
     } else if (norm.includes('city')) {
-      setPlayerName('Erling Haaland');
-      setDescription('¡Potente disparo cruzado de zurda de Haaland tras un contraataque letal!');
+      player = 'Erling Haaland';
+      text = '¡Potente disparo cruzado de zurda de Haaland tras un contraataque letal!';
     } else if (norm.includes('liverpool')) {
-      setPlayerName('Mohamed Salah');
-      setDescription('¡Gol de Salah definiendo con categoría tras asistencia al espacio!');
-    } else {
-      setPlayerName('Delantero Estrella');
-      setDescription(`¡Gol de ${teamName} definiendo frente a la portería!`);
+      player = 'Mohamed Salah';
+      text = '¡Gol de Salah definiendo con categoría tras asistencia al espacio!';
     }
+
+    setPlayerName(player);
+    setDescription(text);
+    setIsDescriptionCustom(true);
   };
 
   return (
@@ -209,7 +305,7 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
               Panel de Arbitraje & Operación de Partido
             </h2>
             <p className="text-xs text-slate-400">
-              Registra incidencias validadas • Persistencia en PostgreSQL antes de emitir vía SSE
+              Plantillas oficiales • Sincronización en vivo • Regla Doble Amarilla = Expulsión
             </p>
           </div>
         </div>
@@ -270,33 +366,100 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
             >
               ⚽ Gol {currentMatch.awayTeam}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEventType('yellow_card');
-                setTeam('away');
-                setMinute(52);
-                setPlayerName('Defensa');
-                setDescription('Falta táctica reiterada cortando un avance peligroso.');
-              }}
-              className="text-xs font-black uppercase px-3 py-1.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 transition-all"
-            >
-              🟨 Tarjeta
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEventType('substitution');
-                setTeam('local');
-                setMinute(65);
-                setPlayerName('Mediocampista');
-                setExtraInfo('Sale: Titular #8 -> Entra: Suplente #14');
-                setDescription('Cambio para refrescar el mediocampo.');
-              }}
-              className="text-xs font-black uppercase px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white transition-all"
-            >
-              🔄 Cambio
-            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PLANTILLA OFICIAL INTERACTIVA DEL EQUIPO */}
+      {currentMatch && squadList.length > 0 && (
+        <div className="mb-6 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                Plantilla Oficial: <span className="text-emerald-400">{team === 'local' ? currentMatch.localTeam : currentMatch.awayTeam}</span>
+              </h3>
+              <span className="text-[10px] text-slate-400">(Toca cualquier jugador para seleccionarlo y redactar la jugada)</span>
+            </div>
+
+            {/* Filtro por Posición */}
+            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              {(['ALL', 'DEL', 'MED', 'DEF', 'POR'] as const).map((pos) => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => setSquadFilter(pos)}
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-all ${
+                    squadFilter === pos
+                      ? 'bg-emerald-500 text-slate-950 font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {pos === 'ALL' ? 'TODOS' : pos}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Grid de Jugadores de la Plantilla */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {squadList.map((player) => {
+              const status = playerCardMap[player.name.trim().toLowerCase()];
+              const isSelected = playerName.trim().toLowerCase() === player.name.trim().toLowerCase();
+              const hasYellow = status && status.yellow >= 1;
+              const isExpelled = status && status.isExpelled;
+
+              return (
+                <button
+                  key={player.id}
+                  type="button"
+                  onClick={() => handleSelectSquadPlayer(player)}
+                  className={`p-2 rounded-xl text-left border transition-all flex items-center justify-between gap-1.5 ${
+                    isSelected
+                      ? 'bg-amber-500/20 border-amber-500 shadow-md shadow-amber-500/10'
+                      : isExpelled
+                      ? 'bg-rose-950/20 border-rose-900/50 opacity-60'
+                      : 'bg-slate-950/70 border-slate-800 hover:border-slate-700 hover:bg-slate-950'
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-digital text-xs font-black text-amber-400">#{player.number}</span>
+                      <span className="text-[9px] px-1 rounded bg-slate-800 text-slate-300 font-bold">{player.position}</span>
+                    </div>
+                    <div className="text-xs font-bold text-white truncate mt-0.5">
+                      {player.name}
+                    </div>
+                  </div>
+
+                  {/* Badges de Tarjetas en la Plantilla */}
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {hasYellow && !isExpelled && (
+                      <span className="text-[10px]" title="Tiene 1 Tarjeta Amarilla">🟨</span>
+                    )}
+                    {isExpelled && (
+                      <span className="text-[10px]" title="EXPULSADO">🟥</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Alerta Destacada si se detecta DOBLE AMARILLA = EXPULSIÓN */}
+      {isDoubleYellow && (
+        <div className="mb-6 p-4 rounded-2xl bg-rose-500/15 border-2 border-rose-500 text-rose-300 flex items-start gap-3 shadow-xl shadow-rose-500/15 animate-pulse">
+          <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-black text-sm uppercase tracking-wider text-rose-200 flex items-center gap-2">
+              <span>⚠️ REGLAMENTO OFICIAL: DOBLE AMARILLA = EXPULSIÓN (ROJA)</span>
+            </div>
+            <p className="text-xs text-rose-300 mt-1">
+              El jugador <strong>{playerName}</strong> ya cuenta con una tarjeta amarilla previa en este partido.
+              Al registrar esta amonestación, el sistema aplicará automáticamente la <strong>TARJETA ROJA</strong> y quedará expulsado del encuentro.
+            </p>
           </div>
         </div>
       )}
@@ -316,7 +479,7 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
             >
               <option value="goal">⚽ Gol</option>
               <option value="foul">⚠️ Falta / Infracción</option>
-              <option value="yellow_card">🟨 Tarjeta Amarilla</option>
+              <option value="yellow_card">🟨 Tarjeta Amarilla (Doble = Roja)</option>
               <option value="red_card">🟥 Tarjeta Roja (Expulsión)</option>
               <option value="substitution">🔄 Sustitución / Cambio</option>
             </select>
@@ -341,23 +504,43 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
             </select>
           </div>
 
-          {/* Minuto */}
+          {/* Minuto con Reloj Entrelazado */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-amber-400" /> Minuto (1 - 130) *
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-amber-400" /> Minuto (1 - 130) *
+              </label>
+              {matchClock && (
+                <button
+                  type="button"
+                  onClick={() => setSyncWithLiveClock(!syncWithLiveClock)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 transition-all ${
+                    syncWithLiveClock
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700'
+                  }`}
+                  title="Activa o desactiva el avance automático con el reloj del partido"
+                >
+                  <Timer className="w-3 h-3" />
+                  {syncWithLiveClock ? 'Reloj Auto' : 'Manual'}
+                </button>
+              )}
+            </div>
             <input
               type="number"
               min="1"
               max="130"
               value={minute}
-              onChange={(e) => setMinute(Number(e.target.value))}
+              onChange={(e) => {
+                setMinute(Number(e.target.value));
+                setSyncWithLiveClock(false);
+              }}
               required
               className="w-full bg-slate-950 border border-slate-700 text-white font-digital rounded-xl px-3.5 py-3 text-base font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
           </div>
 
-          {/* Nombre del Jugador */}
+          {/* Nombre del Jugador con Auto-Sincronización */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-2 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
@@ -367,36 +550,11 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
             </label>
             <input
               type="text"
-              list="players-suggestions-list"
-              placeholder="Escribe jugador (ej: Mbappé, Juan Pérez...)"
+              placeholder="Escribe jugador o toca la plantilla..."
               value={playerName}
               onChange={(e) => handlePlayerNameChange(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-3 text-sm font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
-            {/* Lista de sugerencias automáticas para autocompletar pero permitiendo cualquier nombre libre */}
-            <datalist id="players-suggestions-list">
-              <option value="Kylian Mbappé" />
-              <option value="Vinicius Jr" />
-              <option value="Jude Bellingham" />
-              <option value="Rodrygo Goes" />
-              <option value="Luka Modrić" />
-              <option value="Federico Valverde" />
-              <option value="Lamine Yamal" />
-              <option value="Robert Lewandowski" />
-              <option value="Raphinha" />
-              <option value="Pedri González" />
-              <option value="Dani Olmo" />
-              <option value="Erling Haaland" />
-              <option value="Kevin De Bruyne" />
-              <option value="Phil Foden" />
-              <option value="Mohamed Salah" />
-              <option value="Luis Díaz" />
-              <option value="Darwin Núñez" />
-              <option value="Harry Kane" />
-              <option value="Jamal Musiala" />
-              <option value="Serhou Guirassy" />
-              <option value="Karim Adeyemi" />
-            </datalist>
           </div>
         </div>
 
@@ -416,32 +574,31 @@ export const AdminForm: React.FC<Props> = ({ matches, selectedMatchId, onSelectM
           </div>
         )}
 
-        {/* Descripción con Auto-Detección y Sincronización */}
+        {/* Descripción con Auto-Detección y Sincronización al Tipear y al Hacer Clic */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-              <FileText className="w-4 h-4 text-amber-400" /> Descripción de la Incidencia
+              <FileText className="w-4 h-4 text-amber-400" /> Descripción de la Incidencia (Recuadro Inteligente)
             </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDescriptionCustom(false);
-                  setDescription(buildNarrative(playerName, eventType, team));
-                }}
-                className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-all bg-amber-500/10 px-2 py-0.5 rounded-lg border border-amber-500/20"
-                title="Generar y sincronizar narración con el jugador ingresado"
-              >
-                <Sparkles className="w-3 h-3 text-amber-400" /> Auto-Sincronizar
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsDescriptionCustom(false);
+                setDescription(buildNarrative(playerName, eventType, team));
+              }}
+              className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-all bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20"
+              title="Detectar texto de jugador y sincronizar descripción"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Sincronizar Narración
+            </button>
           </div>
           <textarea
             rows={2}
-            placeholder="Al escribir un jugador o hacer clic aquí, la descripción se completa y sincroniza automáticamente..."
+            placeholder="Al escribir un jugador o hacer clic en este recuadro, el texto cambia y se completa automáticamente..."
             value={description}
             onFocus={handleDescriptionFocus}
             onClick={handleDescriptionFocus}
+            onPointerDown={handleDescriptionFocus}
             onChange={(e) => {
               setDescription(e.target.value);
               setIsDescriptionCustom(e.target.value.trim().length > 0);

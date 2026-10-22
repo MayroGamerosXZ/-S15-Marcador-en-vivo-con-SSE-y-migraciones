@@ -6,6 +6,7 @@ import { ScoreboardCard } from './components/ScoreboardCard';
 import { Timeline } from './components/Timeline';
 import { AdminForm } from './components/AdminForm';
 import { useMatchEvents } from './hooks/useMatchEvents';
+import { useMatchClock } from './hooks/useMatchClock';
 import { RefreshCw, AlertTriangle, Radio } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -14,6 +15,9 @@ export const App: React.FC = () => {
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
   const [matchesError, setMatchesError] = useState<string | null>(null);
+
+  // Hook de reloj acelerado entrelazado (90 minutos transcurren en ~2.5 minutos reales)
+  const matchClock = useMatchClock(selectedMatchId, 1);
 
   // Hook para gestión de eventos SSE en tiempo real para el partido seleccionado
   const {
@@ -97,12 +101,13 @@ export const App: React.FC = () => {
         {/* Vista Pública (Espectador) */}
         {activeView === 'public' && (
           <div className="space-y-6">
-            {/* Marcador En Vivo con Badge SSE */}
+            {/* Marcador En Vivo con Badge SSE y Reloj de Partido */}
             <ScoreboardCard
               match={currentMatch}
               connectionStatus={connectionStatus}
               eventsCount={events.length}
               onReconnect={reconnect}
+              matchClock={matchClock}
             />
 
             {/* Línea de Tiempo con Iconos y Colores Diferenciados */}
@@ -119,11 +124,13 @@ export const App: React.FC = () => {
         {/* Vista de Administración */}
         {activeView === 'admin' && (
           <div className="space-y-6">
-            {/* Formulario Validado de Registro de Eventos */}
+            {/* Formulario Validado de Registro de Eventos con Plantillas y Reloj Entrelazado */}
             <AdminForm
               matches={matches}
               selectedMatchId={selectedMatchId}
               onSelectMatch={(id) => setSelectedMatchId(id)}
+              events={events}
+              matchClock={matchClock}
               onEventCreated={(updatedMatch, newEvent) => {
                 // Sincronización instantánea directa de marcador y timeline
                 if (updatedMatch) {
@@ -151,6 +158,7 @@ export const App: React.FC = () => {
                 connectionStatus={connectionStatus}
                 eventsCount={events.length}
                 onReconnect={reconnect}
+                matchClock={matchClock}
               />
             </div>
 
