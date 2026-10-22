@@ -165,7 +165,7 @@ class DBService {
     } catch {
       this.postgresAvailable = false;
       if (!this.warnedOffline) {
-        console.log('⚠️ [DB Info] PostgreSQL en localhost:5433 no está accesible en este momento.');
+        console.log('⚠️ [DB Info] PostgreSQL en localhost:5434 no está accesible en este momento.');
         console.log('   -> Operando en Modo Resiliente con almacenamiento local para garantizar que la app funcione siempre.');
         console.log('   -> Para usar PostgreSQL en Docker: abre Docker Desktop y ejecuta: docker compose up -d');
         this.warnedOffline = true;

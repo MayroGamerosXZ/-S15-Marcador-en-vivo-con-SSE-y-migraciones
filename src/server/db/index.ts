@@ -7,7 +7,7 @@ dotenv.config();
 const { Pool } = pg;
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5433/marcador_live',
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5434/marcador_live',
   connectionTimeoutMillis: 1500, // No bloquear peticiones si PostgreSQL está apagado
   idleTimeoutMillis: 5000,
 });

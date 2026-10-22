@@ -7,7 +7,7 @@ export default defineConfig({
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5433/marcador_live',
+    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5434/marcador_live',
   },
   verbose: true,
   strict: true,
