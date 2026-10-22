@@ -11,8 +11,11 @@ export default defineConfig({
         changeOrigin: true,
         // Configuración para permitir SSE sin compresión que corte el stream
         configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
-            console.log('Proxy error:', err);
+          proxy.on('error', (_err, _req, res: any) => {
+            if (res && !res.headersSent && typeof res.writeHead === 'function') {
+              res.writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Servidor iniciando...' }));
+            }
           });
         }
       }
