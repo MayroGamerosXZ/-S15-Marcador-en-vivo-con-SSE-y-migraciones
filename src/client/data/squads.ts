@@ -146,20 +146,79 @@ export const SQUADS_DATA: Record<string, TeamSquad> = {
   }
 };
 
+// Almacén en memoria y persistente de jugadores añadidos dinámicamente por el usuario
+let customPlayersStore: Record<string, Player[]> = {};
+
+if (typeof window !== 'undefined') {
+  try {
+    const saved = localStorage.getItem('marcador_custom_players');
+    if (saved) customPlayersStore = JSON.parse(saved);
+  } catch {}
+}
+
+/**
+ * Añade un jugador con número y posición a la plantilla de un equipo
+ */
+export function addPlayerToTeam(
+  teamName: string,
+  player: { name: string; number: number; position: 'POR' | 'DEF' | 'MED' | 'DEL' }
+): Player {
+  const normKey = teamName.trim();
+  if (!customPlayersStore[normKey]) {
+    customPlayersStore[normKey] = [];
+  }
+  const newPlayer: Player = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    name: player.name.trim(),
+    number: player.number,
+    position: player.position,
+  };
+  customPlayersStore[normKey].push(newPlayer);
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('marcador_custom_players', JSON.stringify(customPlayersStore));
+    } catch {}
+  }
+
+  return newPlayer;
+}
+
 export function getSquadForTeam(teamName: string): Player[] {
-  const norm = teamName.toLowerCase();
+  const norm = teamName.toLowerCase().trim();
+  let basePlayers: Player[] = [];
+
   for (const [key, squad] of Object.entries(SQUADS_DATA)) {
     if (norm.includes(key.toLowerCase()) || key.toLowerCase().includes(norm)) {
-      return squad.players;
+      basePlayers = [...squad.players];
+      break;
     }
   }
-  // Búsquedas por palabras clave
-  if (norm.includes('madrid')) return SQUADS_DATA['Real Madrid'].players;
-  if (norm.includes('barca') || norm.includes('barça') || norm.includes('barcelona')) return SQUADS_DATA['FC Barcelona'].players;
-  if (norm.includes('city')) return SQUADS_DATA['Manchester City'].players;
-  if (norm.includes('liverpool')) return SQUADS_DATA['Liverpool FC'].players;
-  if (norm.includes('bayern')) return SQUADS_DATA['Bayern Múnich'].players;
-  if (norm.includes('dortmund') || norm.includes('bvb')) return SQUADS_DATA['Borussia Dortmund'].players;
 
-  return [];
+  // Búsquedas por palabras clave
+  if (basePlayers.length === 0) {
+    if (norm.includes('madrid')) basePlayers = [...SQUADS_DATA['Real Madrid'].players];
+    else if (norm.includes('barca') || norm.includes('barça') || norm.includes('barcelona')) basePlayers = [...SQUADS_DATA['FC Barcelona'].players];
+    else if (norm.includes('city')) basePlayers = [...SQUADS_DATA['Manchester City'].players];
+    else if (norm.includes('liverpool')) basePlayers = [...SQUADS_DATA['Liverpool FC'].players];
+    else if (norm.includes('bayern')) basePlayers = [...SQUADS_DATA['Bayern Múnich'].players];
+    else if (norm.includes('dortmund') || norm.includes('bvb')) basePlayers = [...SQUADS_DATA['Borussia Dortmund'].players];
+  }
+
+  // Incorporar jugadores personalizados añadidos por el usuario
+  const custom = customPlayersStore[teamName.trim()] || [];
+  const extraCustom: Player[] = [];
+  for (const [k, list] of Object.entries(customPlayersStore)) {
+    if (k.toLowerCase() === norm || norm.includes(k.toLowerCase())) {
+      extraCustom.push(...list);
+    }
+  }
+
+  // Deduplicar por id
+  const map = new Map<number, Player>();
+  basePlayers.forEach((p) => map.set(p.id, p));
+  custom.forEach((p) => map.set(p.id, p));
+  extraCustom.forEach((p) => map.set(p.id, p));
+
+  return Array.from(map.values());
 }

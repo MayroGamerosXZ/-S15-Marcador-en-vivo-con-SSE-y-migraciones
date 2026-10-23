@@ -28,6 +28,7 @@ export interface MatchClockState {
   extraMinutes: number;
   isWaitingForExtraTime: boolean;
   togglePlayPause: () => void;
+  startMatchClock: (matchId?: number) => void;
   resetClock: () => void;
   setSpecificMinute: (min: number) => void;
   assignExtraTime: (minutes: number) => void;
@@ -36,6 +37,7 @@ export interface MatchClockState {
 
 interface UseMatchClockOptions {
   onMatchFinished?: (matchId: number) => void;
+  matchStatuses?: Record<number, string>; // 'scheduled' | 'live' | 'finished'
 }
 
 /**
@@ -51,7 +53,7 @@ export function formatClockTime(minute: number, second: number, extraMinutes: nu
   return `${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
 }
 
-// Estado inicial con relojes independientes escalonados para la jornada
+// Estado inicial: Partido 1 y 2 en vivo y corriendo; Partido 3 programado (DETENIDO / NO arranca hasta iniciarse)
 const DEFAULT_INITIAL_CLOCKS: Record<number, SingleMatchClockState> = {
   1: {
     matchId: 1,
@@ -73,10 +75,10 @@ const DEFAULT_INITIAL_CLOCKS: Record<number, SingleMatchClockState> = {
   },
   3: {
     matchId: 3,
-    currentMinute: 5,
-    currentSecond: 10,
+    currentMinute: 0,
+    currentSecond: 0,
     period: 'first_half',
-    isRunning: true,
+    isRunning: false, // ⚠️ PROGRAMADO: NO arranca hasta que el usuario lo active
     extraMinutes: 0,
     isWaitingForExtraTime: false,
   },
@@ -84,13 +86,6 @@ const DEFAULT_INITIAL_CLOCKS: Record<number, SingleMatchClockState> = {
 
 /**
  * Hook de Reloj Multipartido Concurrente e Independiente
- *
- * Características clave:
- * 1. Cada partido tiene su propio cronómetro avanzando continuamente en segundo plano.
- * 2. Cambiar de partido NO resetea ni congela el reloj del partido anterior.
- * 3. Al volver a un partido, este ha seguido avanzando de forma natural e independiente.
- * 4. Pausa automática en el minuto 90:00 solo para el partido que alcanza los 90'.
- * 5. Asignación de tiempo extra independiente por partido.
  */
 export function useMatchClock(
   selectedMatchId: number | null,
@@ -103,20 +98,24 @@ export function useMatchClock(
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  // Asegurar que cualquier partido nuevo tenga su propio reloj sin sobreescribir los existentes
+  // Registrar nuevos partidos sin sobreescribir los existentes
   useEffect(() => {
     if (!selectedMatchId) return;
 
     setClocks((prev) => {
-      if (prev[selectedMatchId]) return prev; // Ya existe y está corriendo, NO resetear
+      if (prev[selectedMatchId]) return prev; // Ya existe, no alterar
+
+      const status = optionsRef.current?.matchStatuses?.[selectedMatchId] || 'scheduled';
+      const isInitiallyRunning = status === 'live';
+
       return {
         ...prev,
         [selectedMatchId]: {
           matchId: selectedMatchId,
-          currentMinute: initialMinute > 0 ? initialMinute : 1,
+          currentMinute: isInitiallyRunning ? (initialMinute > 0 ? initialMinute : 1) : 0,
           currentSecond: 0,
-          period: initialMinute >= 45 ? 'second_half' : 'first_half',
-          isRunning: true,
+          period: 'first_half',
+          isRunning: isInitiallyRunning, // Solo corre si el estado es 'live'
           extraMinutes: 0,
           isWaitingForExtraTime: false,
         },
@@ -126,7 +125,6 @@ export function useMatchClock(
 
   // Motor central de reloj acelerado: avanza TODOS los partidos activos en paralelo
   useEffect(() => {
-    // 28ms por segundo simulado (~1.68s reales por cada minuto de partido)
     const tickMs = 28;
 
     intervalRef.current = setInterval(() => {
@@ -212,6 +210,27 @@ export function useMatchClock(
     };
   }, []);
 
+  // Iniciar / Activar partido (para partidos programados que pasan a EN VIVO)
+  const startMatchClock = useCallback((matchId?: number) => {
+    const targetId = matchId || selectedMatchId;
+    if (!targetId) return;
+    setClocks((prev) => {
+      const cur = prev[targetId];
+      return {
+        ...prev,
+        [targetId]: {
+          matchId: targetId,
+          currentMinute: cur ? (cur.currentMinute > 0 ? cur.currentMinute : 1) : 1,
+          currentSecond: 0,
+          period: 'first_half',
+          isRunning: true,
+          extraMinutes: 0,
+          isWaitingForExtraTime: false,
+        },
+      };
+    });
+  }, [selectedMatchId]);
+
   // Pausar / Reanudar únicamente el partido seleccionado
   const togglePlayPause = useCallback(() => {
     if (!selectedMatchId) return;
@@ -256,7 +275,7 @@ export function useMatchClock(
       const cur = prev[selectedMatchId];
       if (!cur) return prev;
 
-      let period = cur.period;
+      let period: 'first_half' | 'halftime' | 'second_half' | 'finished' = cur.period;
       let isWaiting = false;
       let isRunning = true;
 
@@ -322,22 +341,22 @@ export function useMatchClock(
     });
   }, [selectedMatchId]);
 
-  // Obtener estado del reloj para cualquier partido (usado en MatchSelector para mostrar los tiempos en vivo)
+  // Obtener estado del reloj para cualquier partido
   const getMatchClockInfo = useCallback(
     (matchId: number): MatchClockInfo => {
       const c = clocks[matchId];
       if (!c) {
         return {
-          time: '01:00',
-          minute: 1,
+          time: '00:00',
+          minute: 0,
           second: 0,
-          isRunning: true,
-          period: '1T',
+          isRunning: false,
+          period: 'PROG',
         };
       }
       const periodLabel =
         c.period === 'first_half'
-          ? '1T'
+          ? (c.currentMinute === 0 && !c.isRunning ? 'PROG' : '1T')
           : c.period === 'halftime'
           ? 'ET'
           : c.period === 'second_half'
@@ -360,10 +379,10 @@ export function useMatchClock(
   // Reloj del partido actualmente seleccionado
   const activeClock = (selectedMatchId && clocks[selectedMatchId]) || {
     matchId: selectedMatchId || 1,
-    currentMinute: 1,
+    currentMinute: 0,
     currentSecond: 0,
     period: 'first_half' as const,
-    isRunning: true,
+    isRunning: false,
     extraMinutes: 0,
     isWaitingForExtraTime: false,
   };
@@ -387,6 +406,7 @@ export function useMatchClock(
     extraMinutes: activeClock.extraMinutes,
     isWaitingForExtraTime: activeClock.isWaitingForExtraTime,
     togglePlayPause,
+    startMatchClock,
     resetClock,
     setSpecificMinute,
     assignExtraTime,

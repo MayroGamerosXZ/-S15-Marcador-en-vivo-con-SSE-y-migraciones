@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Match } from './types';
 import { Header } from './components/Header';
 import { MatchSelector } from './components/MatchSelector';
 import { ScoreboardCard } from './components/ScoreboardCard';
 import { Timeline } from './components/Timeline';
 import { AdminForm } from './components/AdminForm';
+import { CreateMatchModal } from './components/CreateMatchModal';
 import { useMatchEvents } from './hooks/useMatchEvents';
 import { useMatchClock } from './hooks/useMatchClock';
 import { RefreshCw, AlertTriangle, Radio } from 'lucide-react';
@@ -51,6 +52,7 @@ export const App: React.FC = () => {
   const [selectedMatchId, setSelectedMatchId] = useState<number | null>(1);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(false);
   const [matchesError, setMatchesError] = useState<string | null>(null);
+  const [isCreateMatchOpen, setIsCreateMatchOpen] = useState<boolean>(false);
 
   // Hook para gestión de eventos SSE en tiempo real para el partido seleccionado
   const {
@@ -66,13 +68,45 @@ export const App: React.FC = () => {
     finishMatch
   } = useMatchEvents(selectedMatchId);
 
-  // Hook de reloj acelerado entrelazado (90 minutos transcurren en ~2.5 minutos reales)
-  // Con pausa automática a los 90', asignación de tiempo extra y finalización automática
+  // Mapa de estados de partidos (para asegurar que los programados no arranquen solos)
+  const matchStatuses = useMemo(() => {
+    const map: Record<number, string> = {};
+    matches.forEach(m => { map[m.id] = m.status; });
+    return map;
+  }, [matches]);
+
+  // Hook de reloj acelerado entrelazado y multipartido
+  // Con pausa automática a los 90', tiempo extra y relojes independientes
   const matchClock = useMatchClock(selectedMatchId, 1, {
+    matchStatuses,
     onMatchFinished: () => {
       finishMatch();
     }
   });
+
+  // Iniciar / Activar un partido programado (pasa a 'live' y arranca el cronómetro)
+  const handleStartMatch = async (matchIdToStart?: number) => {
+    const id = matchIdToStart || selectedMatchId;
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/matches/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'live', period: 'first_half' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.match) {
+          setMatch(data.match);
+          setMatches(prev => prev.map(m => m.id === id ? data.match : m));
+        }
+      }
+      matchClock.startMatchClock(id);
+      fetchMatches();
+    } catch (err) {
+      console.error('Error al iniciar partido programado:', err);
+    }
+  };
 
   // Función global para reiniciar el partido seleccionado (borra eventos, marcador a 0:0 y reloj a 1')
   const handleResetMatch = async () => {
@@ -140,6 +174,7 @@ export const App: React.FC = () => {
           selectedMatchId={selectedMatchId}
           onSelectMatch={(id) => setSelectedMatchId(id)}
           getMatchClockInfo={matchClock.getMatchClockInfo}
+          onCreateMatchClick={() => setIsCreateMatchOpen(true)}
         />
 
         {matchesError && (
@@ -168,6 +203,7 @@ export const App: React.FC = () => {
               onReconnect={reconnect}
               matchClock={matchClock}
               onResetMatch={handleResetMatch}
+              onStartMatch={handleStartMatch}
             />
 
             {/* Línea de Tiempo con Iconos y Colores Diferenciados */}
@@ -192,6 +228,8 @@ export const App: React.FC = () => {
               events={events}
               matchClock={matchClock}
               onResetMatch={handleResetMatch}
+              onStartMatch={handleStartMatch}
+              onCreateMatchClick={() => setIsCreateMatchOpen(true)}
               onEventCreated={(updatedMatch, newEvent) => {
                 // Sincronización instantánea directa de marcador y timeline
                 if (updatedMatch) {
@@ -221,6 +259,7 @@ export const App: React.FC = () => {
                 onReconnect={reconnect}
                 matchClock={matchClock}
                 onResetMatch={handleResetMatch}
+                onStartMatch={handleStartMatch}
               />
             </div>
 
@@ -235,6 +274,23 @@ export const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Modal para Crear / Programar Nuevos Partidos */}
+      <CreateMatchModal
+        isOpen={isCreateMatchOpen}
+        onClose={() => setIsCreateMatchOpen(false)}
+        onMatchCreated={(newMatch) => {
+          setMatches((prev) => {
+            if (prev.some((m) => m.id === newMatch.id)) return prev;
+            return [...prev, newMatch];
+          });
+          setSelectedMatchId(newMatch.id);
+          if (newMatch.status === 'live') {
+            matchClock.startMatchClock(newMatch.id);
+          }
+          fetchMatches();
+        }}
+      />
 
       {/* Footer deportivo con estado del sistema */}
       <footer className="border-t border-slate-900 bg-slate-950/80 py-4 mt-8 text-center text-xs text-slate-500">

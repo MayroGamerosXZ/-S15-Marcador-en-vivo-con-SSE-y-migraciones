@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Match, EventType, TeamSide, MatchEvent } from '../types';
 import { TeamLogo } from './TeamLogo';
-import { getSquadForTeam, Player } from '../data/squads';
+import { getSquadForTeam, addPlayerToTeam, Player } from '../data/squads';
 import { MatchClockState } from '../hooks/useMatchClock';
 import {
   Send,
@@ -17,7 +17,11 @@ import {
   Users,
   AlertTriangle,
   Timer,
-  RotateCcw
+  RotateCcw,
+  Play,
+  Plus,
+  UserPlus,
+  X
 } from 'lucide-react';
 
 interface Props {
@@ -28,6 +32,8 @@ interface Props {
   events?: MatchEvent[];
   matchClock?: MatchClockState;
   onResetMatch?: () => Promise<void> | void;
+  onStartMatch?: () => Promise<void> | void;
+  onCreateMatchClick?: () => void;
 }
 
 export const AdminForm: React.FC<Props> = ({
@@ -37,11 +43,13 @@ export const AdminForm: React.FC<Props> = ({
   onEventCreated,
   events = [],
   matchClock,
-  onResetMatch
+  onResetMatch,
+  onStartMatch,
+  onCreateMatchClick,
 }) => {
   const currentMatch = matches.find(m => m.id === selectedMatchId);
 
-  // Estados del formulario
+  // Estados del formulario de eventos
   const [eventType, setEventType] = useState<EventType>('goal');
   const [team, setTeam] = useState<TeamSide>('local');
   const [minute, setMinute] = useState<number>(matchClock?.currentMinute || 68);
@@ -51,6 +59,14 @@ export const AdminForm: React.FC<Props> = ({
   const [extraInfo, setExtraInfo] = useState<string>('');
   const [isDescriptionCustom, setIsDescriptionCustom] = useState<boolean>(false);
   const [squadFilter, setSquadFilter] = useState<'ALL' | 'DEL' | 'MED' | 'DEF' | 'POR'>('ALL');
+
+  // Estados para añadir jugadores personalizados con posición
+  const [showAddPlayer, setShowAddPlayer] = useState<boolean>(false);
+  const [newPlayerName, setNewPlayerName] = useState<string>('');
+  const [newPlayerNumber, setNewPlayerNumber] = useState<string>('');
+  const [newPlayerPos, setNewPlayerPos] = useState<'DEL' | 'MED' | 'DEF' | 'POR'>('DEL');
+  const [newPlayerTeam, setNewPlayerTeam] = useState<TeamSide>('local');
+  const [squadVersion, setSquadVersion] = useState<number>(0);
 
   // Estados de retroalimentación
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -93,14 +109,40 @@ export const AdminForm: React.FC<Props> = ({
   // Si tiene 1 tarjeta amarilla previa y se selecciona tarjeta amarilla, se activa la regla DOBLE AMARILLA = ROJA
   const isDoubleYellow = eventType === 'yellow_card' && currentPlayerStatus && currentPlayerStatus.yellow >= 1;
 
-  // Plantilla oficial del equipo seleccionado (Real Madrid, FC Barcelona, City, Liverpool, etc.)
+  // Plantilla del equipo seleccionado (incorporando jugadores oficiales y personalizados)
   const squadList = useMemo(() => {
     if (!currentMatch) return [];
     const teamName = team === 'local' ? currentMatch.localTeam : currentMatch.awayTeam;
     const players = getSquadForTeam(teamName);
     if (squadFilter === 'ALL') return players;
     return players.filter(p => p.position === squadFilter);
-  }, [currentMatch, team, squadFilter]);
+  }, [currentMatch, team, squadFilter, squadVersion]);
+
+  // Manejador para añadir un nuevo jugador con posición a la plantilla
+  const handleAddPlayer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentMatch) return;
+    const cleanName = newPlayerName.trim();
+    if (!cleanName) {
+      setErrorMessage('Ingresa el nombre del futbolista para añadirlo a la plantilla.');
+      return;
+    }
+
+    const num = parseInt(newPlayerNumber, 10) || Math.floor(Math.random() * 90) + 10;
+    const targetTeam = newPlayerTeam === 'local' ? currentMatch.localTeam : currentMatch.awayTeam;
+
+    addPlayerToTeam(targetTeam, {
+      name: cleanName,
+      number: num,
+      position: newPlayerPos,
+    });
+
+    setSquadVersion((v) => v + 1);
+    setSuccessMessage(`¡Futbolista ${cleanName} (#${num} - ${newPlayerPos}) añadido a la plantilla de ${targetTeam}!`);
+    setNewPlayerName('');
+    setNewPlayerNumber('');
+    setShowAddPlayer(false);
+  };
 
   // Función constructora de narrativa deportiva automática en tiempo real
   const buildNarrative = (player: string, type: EventType, side: TeamSide) => {
@@ -313,8 +355,8 @@ export const AdminForm: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Selector de Partido Activo */}
-        <div className="flex items-center gap-3 bg-slate-900/90 p-2 rounded-2xl border border-slate-700">
+        {/* Selector de Partido Activo y Crear Partido */}
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 p-2 rounded-2xl border border-slate-700">
           <label className="text-xs font-bold text-amber-400 uppercase tracking-widest pl-2">
             Partido:
           </label>
@@ -325,10 +367,22 @@ export const AdminForm: React.FC<Props> = ({
           >
             {matches.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.localTeam} ({m.localScore}) vs ({m.awayScore}) {m.awayTeam}
+                {m.localTeam} ({m.localScore}) vs ({m.awayScore}) {m.awayTeam} {m.status === 'scheduled' ? '[PROG]' : ''}
               </option>
             ))}
           </select>
+
+          {onCreateMatchClick && (
+            <button
+              type="button"
+              onClick={onCreateMatchClick}
+              className="px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md transition-all flex items-center gap-1 active:scale-95"
+              title="Crear un nuevo partido"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Nuevo</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -353,8 +407,20 @@ export const AdminForm: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Botones de Gol Rápido estilizados por equipo y Reiniciar */}
+          {/* Botones de Gol Rápido, Iniciar Programado y Reiniciar */}
           <div className="flex flex-wrap items-center gap-2">
+            {currentMatch.status === 'scheduled' && onStartMatch && (
+              <button
+                type="button"
+                onClick={onStartMatch}
+                className="text-xs font-black uppercase px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-1.5 active:scale-95 animate-pulse"
+                title="Iniciar partido: pasar de programado a EN VIVO y arrancar reloj"
+              >
+                <Play className="w-3.5 h-3.5 fill-white" />
+                Activar / Iniciar
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setQuickGoal('local')}
@@ -384,36 +450,154 @@ export const AdminForm: React.FC<Props> = ({
         </div>
       )}
 
-      {/* PLANTILLA OFICIAL INTERACTIVA DEL EQUIPO */}
-      {currentMatch && squadList.length > 0 && (
+      {/* PLANTILLA DE FUTBOLISTAS INTERACTIVA Y GESTIÓN DE JUGADORES */}
+      {currentMatch && (
         <div className="mb-6 p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-emerald-400" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-white">
-                Plantilla Oficial: <span className="text-emerald-400">{team === 'local' ? currentMatch.localTeam : currentMatch.awayTeam}</span>
+                Plantilla: <span className="text-emerald-400">{team === 'local' ? currentMatch.localTeam : currentMatch.awayTeam}</span>
               </h3>
-              <span className="text-[10px] text-slate-400">(Toca cualquier jugador para seleccionarlo y redactar la jugada)</span>
+              <span className="text-[10px] text-slate-400 hidden sm:inline">(Toca cualquier jugador para seleccionarlo)</span>
             </div>
 
-            {/* Filtro por Posición */}
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-              {(['ALL', 'DEL', 'MED', 'DEF', 'POR'] as const).map((pos) => (
-                <button
-                  key={pos}
-                  type="button"
-                  onClick={() => setSquadFilter(pos)}
-                  className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-all ${
-                    squadFilter === pos
-                      ? 'bg-emerald-500 text-slate-950 font-black'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {pos === 'ALL' ? 'TODOS' : pos}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Botón para abrir el formulario de añadir jugador con posición */}
+              <button
+                type="button"
+                onClick={() => {
+                  setNewPlayerTeam(team);
+                  setShowAddPlayer((prev) => !prev);
+                }}
+                className="text-[11px] font-bold px-3 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>{showAddPlayer ? 'Cerrar' : '➕ Añadir Jugador'}</span>
+              </button>
+
+              {/* Filtro por Posición */}
+              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                {(['ALL', 'DEL', 'MED', 'DEF', 'POR'] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => setSquadFilter(pos)}
+                    className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-all ${
+                      squadFilter === pos
+                        ? 'bg-emerald-500 text-slate-950 font-black'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {pos === 'ALL' ? 'TODOS' : pos}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
+
+          {/* FORMULARIO INLINE PARA AÑADIR JUGADOR CON POSICIÓN */}
+          {showAddPlayer && (
+            <form onSubmit={handleAddPlayer} className="mb-4 p-4 rounded-2xl bg-slate-950 border border-emerald-500/50 shadow-xl animate-fadeIn">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-300 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-emerald-400" />
+                  <span>Añadir Nuevo Futbolista a la Plantilla</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setShowAddPlayer(false)}
+                  className="text-slate-400 hover:text-white p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Nombre Completo</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPlayerName}
+                    onChange={(e) => setNewPlayerName(e.target.value)}
+                    placeholder="Ej: Mayro Gameros, Lamine Yamal..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Dorsal (#)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={newPlayerNumber}
+                    onChange={(e) => setNewPlayerNumber(e.target.value)}
+                    placeholder="10"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Posición Táctica</label>
+                  <select
+                    value={newPlayerPos}
+                    onChange={(e) => setNewPlayerPos(e.target.value as any)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-bold"
+                  >
+                    <option value="DEL">DEL (Delantero)</option>
+                    <option value="MED">MED (Mediocampista)</option>
+                    <option value="DEF">DEF (Defensa)</option>
+                    <option value="POR">POR (Portero)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-slate-400">Equipo:</span>
+                  <button
+                    type="button"
+                    onClick={() => setNewPlayerTeam('local')}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      newPlayerTeam === 'local'
+                        ? 'bg-emerald-600 text-white shadow'
+                        : 'bg-slate-900 text-slate-400 border border-slate-800'
+                    }`}
+                  >
+                    Local ({currentMatch.localTeam})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPlayerTeam('away')}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      newPlayerTeam === 'away'
+                        ? 'bg-blue-600 text-white shadow'
+                        : 'bg-slate-900 text-slate-400 border border-slate-800'
+                    }`}
+                  >
+                    Visitante ({currentMatch.awayTeam})
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPlayer(false)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-xs font-semibold hover:bg-slate-700"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-lg shadow-emerald-600/30 active:scale-95 flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Guardar Jugador</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
 
           {/* Grid de Jugadores de la Plantilla */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">

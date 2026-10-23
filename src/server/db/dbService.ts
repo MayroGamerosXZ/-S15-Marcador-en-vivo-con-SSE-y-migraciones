@@ -349,6 +349,57 @@ class DBService {
   }
 
   /**
+   * Crea un nuevo partido (ej: Programado o En Vivo)
+   */
+  public async createMatch(data: {
+    localTeam: string;
+    awayTeam: string;
+    status?: string;
+    period?: string;
+  }): Promise<Match> {
+    const isOnline = await this.isPostgresOnline();
+    let createdMatch: Match | null = null;
+    const status = data.status || 'scheduled';
+    const period = data.period || 'first_half';
+
+    if (isOnline) {
+      try {
+        const [inserted] = await db.insert(matches).values({
+          localTeam: data.localTeam,
+          awayTeam: data.awayTeam,
+          status,
+          period,
+          localScore: 0,
+          awayScore: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }).returning();
+        createdMatch = inserted;
+      } catch (err) {
+        console.warn('Error creando match en Postgres, usando fallback:', err);
+      }
+    }
+
+    if (!createdMatch) {
+      const nextId = fallbackMatches.length > 0 ? Math.max(...fallbackMatches.map(m => m.id)) + 1 : 1;
+      createdMatch = {
+        id: nextId,
+        localTeam: data.localTeam,
+        awayTeam: data.awayTeam,
+        status,
+        period,
+        localScore: 0,
+        awayScore: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      fallbackMatches.push(createdMatch);
+    }
+
+    return createdMatch;
+  }
+
+  /**
    * Actualiza el estado o período de un partido (por ejemplo al finalizar a los 90+ extra)
    */
   public async updateMatchStatus(matchId: number, status: string, period: string): Promise<Match> {

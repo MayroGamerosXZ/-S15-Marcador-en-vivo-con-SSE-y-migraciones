@@ -24,6 +24,7 @@ interface Props {
   onReconnect?: () => void;
   matchClock?: MatchClockState;
   onResetMatch?: () => Promise<void> | void;
+  onStartMatch?: () => Promise<void> | void;
 }
 
 export const ScoreboardCard: React.FC<Props> = ({
@@ -33,6 +34,7 @@ export const ScoreboardCard: React.FC<Props> = ({
   onReconnect,
   matchClock,
   onResetMatch,
+  onStartMatch,
 }) => {
   const [customExtra, setCustomExtra] = useState<string>('3');
   const [isResetting, setIsResetting] = useState<boolean>(false);
@@ -208,8 +210,20 @@ export const ScoreboardCard: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Botones de acción derecha: Reinicio Completo y Badge SSE */}
+        {/* Botones de acción derecha: Iniciar Partido Programado, Reinicio Completo y Badge SSE */}
         <div className="flex flex-wrap items-center gap-2">
+          {match.status === 'scheduled' && onStartMatch && (
+            <button
+              type="button"
+              onClick={onStartMatch}
+              className="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 animate-pulse"
+              title="Iniciar partido programado: pasar a EN VIVO y arrancar reloj"
+            >
+              <Play className="w-3.5 h-3.5 fill-white" />
+              <span>▶️ Iniciar Partido</span>
+            </button>
+          )}
+
           {onResetMatch && (
             <button
               type="button"
@@ -233,6 +247,35 @@ export const ScoreboardCard: React.FC<Props> = ({
         <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>¡Partido reiniciado exitosamente! Goles, tarjetas y cambios eliminados. Marcador en 0:0 y reloj en minuto 1'.</span>
+        </div>
+      )}
+
+      {/* BANNER 0: PARTIDO PROGRAMADO (EN ESPERA DE SILBATAZO INICIAL) */}
+      {match.status === 'scheduled' && (
+        <div className="mb-6 p-5 rounded-3xl bg-gradient-to-r from-blue-500/15 via-blue-600/10 to-blue-500/15 border-2 border-blue-500/40 shadow-xl backdrop-blur-md flex flex-wrap items-center justify-between gap-4 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <h4 className="text-sm font-black text-blue-300 uppercase tracking-wide flex items-center gap-2">
+                <span>🗓️ Partido Programado • En Espera de Inicio</span>
+              </h4>
+              <p className="text-xs text-slate-300 mt-0.5">
+                El reloj permanece detenido en 00:00 hasta que des el silbatazo inicial para comenzar la transmisión en vivo.
+              </p>
+            </div>
+          </div>
+          {onStartMatch && (
+            <button
+              type="button"
+              onClick={onStartMatch}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/30 active:scale-95 flex items-center gap-2"
+            >
+              <Play className="w-4 h-4 fill-white" />
+              <span>Dar Silbatazo Inicial (Pasar a EN VIVO)</span>
+            </button>
+          )}
         </div>
       )}
 

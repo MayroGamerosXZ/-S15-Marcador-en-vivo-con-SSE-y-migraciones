@@ -35,6 +35,37 @@ matchesRouter.get('/', async (_req: Request, res: Response) => {
   }
 });
 
+// Esquema Zod para creación de partidos
+const createMatchSchema = z.object({
+  localTeam: z.string().min(2, 'El equipo local debe tener al menos 2 caracteres'),
+  awayTeam: z.string().min(2, 'El equipo visitante debe tener al menos 2 caracteres'),
+  status: z.enum(['scheduled', 'live', 'finished']).optional().default('scheduled'),
+  period: z.string().optional().default('first_half'),
+});
+
+/**
+ * POST /api/matches
+ * Nombre: Crear un nuevo partido
+ * Función: Registra un partido en la base de datos (ej: Programado o En Vivo)
+ */
+matchesRouter.post('/', async (req: Request, res: Response) => {
+  try {
+    const parseResult = createMatchSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({
+        error: 'Datos inválidos al crear el partido',
+        details: parseResult.error.flatten().fieldErrors
+      });
+    }
+
+    const newMatch = await dbService.createMatch(parseResult.data);
+    res.status(201).json(newMatch);
+  } catch (error: any) {
+    console.error('Error creating match:', error);
+    res.status(500).json({ error: 'Error al crear el nuevo partido' });
+  }
+});
+
 /**
  * 2. GET /api/matches/:id
  * Nombre: Obtener detalle de un partido

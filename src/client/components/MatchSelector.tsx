@@ -2,13 +2,14 @@ import React from 'react';
 import { Match } from '../types';
 import { TeamLogo } from './TeamLogo';
 import { MatchClockInfo } from '../hooks/useMatchClock';
-import { Trophy, CheckCircle2, Flame, Calendar, Timer } from 'lucide-react';
+import { Trophy, CheckCircle2, Flame, Calendar, Timer, Plus } from 'lucide-react';
 
 interface Props {
   matches: Match[];
   selectedMatchId: number | null;
   onSelectMatch: (id: number) => void;
   getMatchClockInfo?: (id: number) => MatchClockInfo;
+  onCreateMatchClick?: () => void;
 }
 
 export const MatchSelector: React.FC<Props> = ({
@@ -16,17 +17,32 @@ export const MatchSelector: React.FC<Props> = ({
   selectedMatchId,
   onSelectMatch,
   getMatchClockInfo,
+  onCreateMatchClick,
 }) => {
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-3 px-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3 px-1">
         <h2 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
           <Trophy className="w-4 h-4 text-emerald-400" />
           <span>Partidos de la Jornada (Haz clic para sintonizar en vivo)</span>
         </h2>
-        <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-          {matches.length} Partidos Disponibles
-        </span>
+        
+        <div className="flex items-center gap-2">
+          {onCreateMatchClick && (
+            <button
+              type="button"
+              onClick={onCreateMatchClick}
+              className="text-xs text-white font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-3 py-1 rounded-xl shadow-md transition-all flex items-center gap-1.5 active:scale-95"
+              title="Crear y programar un nuevo partido"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Programar Nuevo Partido</span>
+            </button>
+          )}
+          <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-xl border border-emerald-500/20">
+            {matches.length} Partidos
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
