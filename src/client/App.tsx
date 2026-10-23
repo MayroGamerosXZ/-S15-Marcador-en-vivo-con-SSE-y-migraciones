@@ -139,6 +139,7 @@ export const App: React.FC = () => {
           matches={matches}
           selectedMatchId={selectedMatchId}
           onSelectMatch={(id) => setSelectedMatchId(id)}
+          getMatchClockInfo={matchClock.getMatchClockInfo}
         />
 
         {matchesError && (

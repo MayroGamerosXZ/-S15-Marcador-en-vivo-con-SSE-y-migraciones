@@ -1,15 +1,22 @@
 import React from 'react';
 import { Match } from '../types';
 import { TeamLogo } from './TeamLogo';
-import { Trophy, CheckCircle2, Flame, Calendar } from 'lucide-react';
+import { MatchClockInfo } from '../hooks/useMatchClock';
+import { Trophy, CheckCircle2, Flame, Calendar, Timer } from 'lucide-react';
 
 interface Props {
   matches: Match[];
   selectedMatchId: number | null;
   onSelectMatch: (id: number) => void;
+  getMatchClockInfo?: (id: number) => MatchClockInfo;
 }
 
-export const MatchSelector: React.FC<Props> = ({ matches, selectedMatchId, onSelectMatch }) => {
+export const MatchSelector: React.FC<Props> = ({
+  matches,
+  selectedMatchId,
+  onSelectMatch,
+  getMatchClockInfo,
+}) => {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-3 px-1">
@@ -52,10 +59,18 @@ export const MatchSelector: React.FC<Props> = ({ matches, selectedMatchId, onSel
                     {isLive ? 'EN VIVO' : m.status === 'finished' ? 'FINALIZADO' : 'PROGRAMADO'}
                   </span>
 
-                  {m.period && (
-                    <span className="text-[10px] text-slate-400 font-bold bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">
-                      {m.period === 'first_half' ? '1T' : m.period === 'second_half' ? '2T' : m.period === 'halftime' ? 'ET' : 'FIN'}
+                  {getMatchClockInfo ? (
+                    <span className="text-[10px] text-amber-400 font-digital font-black bg-slate-950 px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1.5 shadow-sm">
+                      <span className={`w-1.5 h-1.5 rounded-full ${getMatchClockInfo(m.id).isRunning ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`}></span>
+                      <span className="text-slate-400 font-sans font-bold text-[9px]">{getMatchClockInfo(m.id).period}</span>
+                      <span className="text-amber-400 tracking-wider tabular-nums font-black">{getMatchClockInfo(m.id).time}</span>
                     </span>
+                  ) : (
+                    m.period && (
+                      <span className="text-[10px] text-slate-400 font-bold bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">
+                        {m.period === 'first_half' ? '1T' : m.period === 'second_half' ? '2T' : m.period === 'halftime' ? 'ET' : 'FIN'}
+                      </span>
+                    )
                   )}
                 </div>
 
